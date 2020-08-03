@@ -24,7 +24,7 @@ namespace mix::utils
     {
         timeZero_ = clock::now();
     }
-
+ 
     inline auto stopwatch::elapsed_time
         () const -> milliseconds
     {

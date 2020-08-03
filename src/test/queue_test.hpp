@@ -335,21 +335,10 @@ namespace mix::ds
         auto rng      = make_rng<test_t>(0u, n, seed);
         auto handles  = queue_insert_n(n, queue, rng);
 
-        auto const print_queue = [](auto const& queue)
+        while (!queue.empty())
         {
-            for (auto const ri : queue)
-            {
-                std::cout << ri << ' ';
-            }
-            std::cout << std::endl;
-        };
-
-        for (auto i = 0u; i < n; ++i)
-        {
-            std::cout << "#" << i << std::endl;
-            print_queue(queue);
+            std::cout << queue.find_min() << std::endl;
             queue.delete_min();
-            print_queue(queue);
         }
     }
 }

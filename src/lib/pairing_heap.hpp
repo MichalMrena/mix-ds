@@ -156,6 +156,8 @@ namespace mix::ds
         auto find_min     ()                        -> reference;
         auto find_min     () const                  -> const_reference;
         auto decrease_key (handle_t const handle)   -> void;
+        auto decrease_key (iterator pos)            -> void;
+        auto decrease_key (const_iterator pos)      -> void;
         auto meld         (pairing_heap rhs)        -> pairing_heap&;
         auto erase        (handle_t const handle)   -> void;
         auto erase        (iterator pos)            -> void;
@@ -482,6 +484,20 @@ namespace mix::ds
         (handle_t const handle) -> void
     {
         this->dec_key_impl(handle.node_);
+    }
+
+    template<class T, class Compare, class MergeMode, class Allocator>
+    auto pairing_heap<T, Compare, MergeMode, Allocator>::decrease_key
+        (iterator pos) -> void
+    {
+        this->dec_key_impl(pos.current());
+    }
+
+    template<class T, class Compare, class MergeMode, class Allocator>
+    auto pairing_heap<T, Compare, MergeMode, Allocator>::decrease_key
+        (const_iterator pos) -> void
+    {
+        this->dec_key_impl(pos.current());
     }
 
     template<class T, class Compare, class MergeMode, class Allocator>
