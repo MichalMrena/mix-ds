@@ -9,11 +9,11 @@
 * [Comparison](#comparison)
 
 # Intro
-This is small data structure library for C++. Some structures are useful in practice and some of them that are interesting in theory can be used in some experiments and comparisons. Each structure is implemented in a single independent [header file](./src/lib). Using them is therefore very simple. You just need to include particular header file in your project. You will also need a compiler that supports C++17. It was tested with ```gcc 10.1.0```, ```clang++ 10.0.0``` and ```Visual Studio 2019```.
+This is a small data structure library for C++. Some structures are useful in practice and some of them that are interesting in theory can be used in some experiments and comparisons. Each structure is implemented in a single independent [header file](./src/lib). Using them is therefore very simple. You just need to include particular header file in your project. You will also need a compiler that supports C++17. It was tested with ```gcc 10.1.0```, ```clang++ 10.0.0``` and ```Visual Studio 2019```.
 
 # Data structures
 ## Pairing heap
-Pairing heap is simple and efficient implementation of the priority queue. It performs very well in [Discrete-event simulation](https://en.wikipedia.org/wiki/Discrete-event_simulation). You can read a formal description on the [Wikipedia](https://en.wikipedia.org/wiki/Pairing_heap#cite_note-FSST-1) , in the [original paper](https://www.cs.cmu.edu/~sleator/papers/pairing-heaps.pdf) and on many other places on the [internet](https://www.google.com/search?q=pairing+heap&oq=pairing+heap). We are not gonna repeat that here.  
+Pairing heap is simple and efficient implementation of the [priority queue](https://en.wikipedia.org/wiki/Priority_queue). It performs very well in [Discrete-event simulation](https://en.wikipedia.org/wiki/Discrete-event_simulation). You can read a formal description on the [Wikipedia](https://en.wikipedia.org/wiki/Pairing_heap) , in the [original paper](https://www.cs.cmu.edu/~sleator/papers/pairing-heaps.pdf) and on many other places on the [internet](https://www.google.com/search?q=pairing+heap&oq=pairing+heap). We are not gonna repeat that here.  
 Pairing heap is implemented in [Boost](https://www.boost.org/doc/libs/1_73_0/doc/html/boost/heap/pairing_heap.html) and you will probably find many other implementations but some of them are naive or not generic. Our implementation is a generic recursion-free container. We use a binary tree to represent the heap and we also support two *merge modes* => two pass merge *(default)* and fifo queue. It can be specified by a template parameter.
 
 # Documentation
@@ -32,7 +32,7 @@ auto insert  (value_type&& value)      -> handle_t; // 3.
 2. New element is copy constructed.
 3. New element is move constructed.  
 
-Each method returns a handle that is associated with inserted element. It can be used later to erase that element or to increase its priority. Handle is merely a pointer wrap so it can be passed by value.
+Each method returns a handle that is associated with an inserted element. It can be used later to erase the element or to increase its priority. Handle is merely a pointer wrap so it can be passed by value with no overhead.
 
 ### Element access
 ```C++
@@ -47,7 +47,7 @@ auto cend     () const -> const_iterator;   // 8.
 ```
 1. Returns reference to the element with the highest priority. 
 2. Returns const reference to the element with the highest priority.
-3. ... Whole structure is iterable. However be careful not to change a priority of some element. It would cause undefined behaviour.
+3. ... 4. Whole structure is iterable. However be careful not to change a priority of some element. It would cause undefined behaviour.
 
 ### Element removal
 ```C++
@@ -57,7 +57,7 @@ auto erase      (iterator pos)          -> void; // 3.
 auto erase      (const_iterator pos)    -> void; // 4.
 ```
 1. Removes an element with the highest priority from the queue.
-2. ... Removes an element associated with given handle/iterator.
+2. ... 4. Removes an element associated with given handle/iterator.
 
 ### Element modification
 ```C++
@@ -65,7 +65,7 @@ auto decrease_key (handle_t const handle) -> void; // 1.
 auto decrease_key (iterator pos)          -> void; // 2.
 auto decrease_key (const_iterator pos)    -> void; // 3.
 ```
-1. ... Corrects a position of an element that is associated with given handle/iterator after its priority have been **increased**. See the **example** below.  
+1. ... 3. Corrects a position of an element that is associated with given handle/iterator after its priority have been **increased**. See the **example** below.  
 
 *Similar operation ```increase_key``` is not supported in general but might be supported by some specific implementations.*
 

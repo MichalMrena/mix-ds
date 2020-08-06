@@ -143,36 +143,36 @@ namespace mix::ds
     public:
         pairing_heap  (Allocator const& alloc = Allocator());
         pairing_heap  (pairing_heap const& other);
-        pairing_heap  (pairing_heap&& other);
+        pairing_heap  (pairing_heap&& other) noexcept;
         ~pairing_heap ();
 
         auto operator= (pairing_heap other) -> pairing_heap&;
 
         template<class... Args>
-        auto emplace      (Args&&... args)          -> handle_t;
-        auto insert       (value_type const& value) -> handle_t;
-        auto insert       (value_type&& value)      -> handle_t;
-        auto delete_min   ()                        -> void;
-        auto find_min     ()                        -> reference;
-        auto find_min     () const                  -> const_reference;
-        auto decrease_key (handle_t const handle)   -> void;
-        auto decrease_key (iterator pos)            -> void;
-        auto decrease_key (const_iterator pos)      -> void;
-        auto meld         (pairing_heap rhs)        -> pairing_heap&;
-        auto erase        (handle_t const handle)   -> void;
-        auto erase        (iterator pos)            -> void;
-        auto erase        (const_iterator pos)      -> void;
-        auto swap         (pairing_heap& rhs)       -> void;
-        auto empty        () const                  -> bool;
-        auto size         () const                  -> size_type;
-        auto max_size     () const                  -> size_type;
-        auto clear        ()                        -> void;
-        auto begin        ()                        -> iterator;
-        auto end          ()                        -> iterator;
-        auto begin        () const                  -> const_iterator;
-        auto end          () const                  -> const_iterator;
-        auto cbegin       () const                  -> const_iterator;
-        auto cend         () const                  -> const_iterator;
+        auto emplace      (Args&&... args)             -> handle_t;
+        auto insert       (value_type const& value)    -> handle_t;
+        auto insert       (value_type&& value)         -> handle_t;
+        auto delete_min   ()                           -> void;
+        auto find_min     ()                           -> reference;
+        auto find_min     () const                     -> const_reference;
+        auto decrease_key (handle_t const handle)      -> void;
+        auto decrease_key (iterator pos)               -> void;
+        auto decrease_key (const_iterator pos)         -> void;
+        auto meld         (pairing_heap rhs)           -> pairing_heap&;
+        auto erase        (handle_t const handle)      -> void;
+        auto erase        (iterator pos)               -> void;
+        auto erase        (const_iterator pos)         -> void;
+        auto swap         (pairing_heap& rhs) noexcept -> void;
+        auto empty        () const                     -> bool;
+        auto size         () const                     -> size_type;
+        auto max_size     () const                     -> size_type;
+        auto clear        ()                           -> void;
+        auto begin        ()                           -> iterator;
+        auto end          ()                           -> iterator;
+        auto begin        () const                     -> const_iterator;
+        auto end          () const                     -> const_iterator;
+        auto cbegin       () const                     -> const_iterator;
+        auto cend         () const                     -> const_iterator;
 
     private:
         template<class... Args>
@@ -399,7 +399,7 @@ namespace mix::ds
 
     template<class T, class Compare, class MergeMode, class Allocator>
     pairing_heap<T, Compare, MergeMode, Allocator>::pairing_heap
-        (pairing_heap&& other) :
+        (pairing_heap&& other) noexcept :
         alloc_ (std::move(other.alloc_)),
         root_  (std::exchange(other.root_, nullptr)),
         size_  (std::exchange(other.size_, 0))
@@ -547,7 +547,7 @@ namespace mix::ds
 
     template<class T, class Compare, class MergeMode, class Allocator>
     auto pairing_heap<T, Compare, MergeMode, Allocator>::swap
-        (pairing_heap& rhs) -> void
+        (pairing_heap& rhs) noexcept -> void
     {
         using std::swap;
         swap(root_, rhs.root_);
