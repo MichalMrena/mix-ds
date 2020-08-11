@@ -1,9 +1,9 @@
 #ifndef MIX_DS_QUEUE_TEST_HPP
 #define MIX_DS_QUEUE_TEST_HPP
 
+#include "test_commons.hpp"
 #include "../utils/random_wrap.hpp"
 
-#include <iostream>
 #include <vector>
 #include <iterator>
 #include <unordered_map>
@@ -31,38 +31,6 @@ namespace mix::ds
         return lhs.data > rhs.data;
     }
 
-    template <std::size_t Size>
-    auto ASSERT(bool const b, char const (&testName)[Size])
-    {
-        if (b)
-        {
-            std::cout << testName << " passed." << std::endl;
-        }
-        else
-        {
-            std::cout << "!!! " << testName << " failed." << std::endl;
-        }
-    }
-
-    inline auto make_seeder(unsigned long const seed)
-    {
-        using seed_t = unsigned long;
-        auto constexpr maxseed = std::numeric_limits<seed_t>::max();
-        return utils::random_uniform_int<seed_t>(10, maxseed, seed);
-    }
-
-    template<class T>
-    auto make_rng(T const min, T const max, unsigned long seed)
-    {
-        return utils::random_uniform_int<T>(min, max, seed);
-    }
-
-    template<class T>
-    auto make_rng(unsigned long seed)
-    {
-        return utils::random_uniform_int<T>(seed);
-    }
-
     template<class Handles>
     auto erase_handle(Handles& handles, std::size_t const index)
     {
@@ -82,12 +50,6 @@ namespace mix::ds
         }
 
         return hs;
-    }
-
-    template<class Queue>
-    auto queue_real_size (Queue const& queue)
-    {
-        return static_cast<std::size_t>(std::distance(std::begin(queue), std::end(queue)));
     }
 
     template<template<class, class...> class TestedQueue, class... Options>
@@ -234,7 +196,7 @@ namespace mix::ds
         queueSecond.delete_min();
 
         ASSERT(queueFirst == queueSecond, "Test equal");
-        ASSERT(queueFirst.size() == queue_real_size(queueFirst), "Test size");
+        ASSERT(queueFirst.size() == real_size(queueFirst), "Test size");
 
         queue_test_delete_n(queueFirst, queueFirst.size() / 2);
         swap(queueFirst, queueSecond);

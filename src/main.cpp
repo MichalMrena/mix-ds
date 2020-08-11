@@ -1,14 +1,17 @@
 #include "lib/pairing_heap.hpp"
 #include "test/queue_test.hpp"
+#include "test/map_test.hpp"
 #include "utils/stopwatch.hpp"
 #include "compare/boost_pairing_heap.hpp"
+
+#include <map>
 
 auto test_pairing_heap()
 {
     using namespace mix::ds;
-    auto constexpr seed = 84465413; 
-    auto constexpr n    = 5'000'000;
-    // auto constexpr n    = 1'000;
+    auto constexpr seed = 65468321; 
+    // auto constexpr n    = 5'000'000;
+    auto constexpr n    = 10'000;
 
     // queue_test_insert <pairing_heap, merge_modes::fifo_queue> (n, seed);
     // queue_test_insert <pairing_heap, merge_modes::two_pass>   (n, seed);
@@ -35,6 +38,15 @@ auto test_pairing_heap()
     // queue_test_other <pairing_heap, merge_modes::fifo_queue> (n, seed);
 
     queue_test_random_all <boost_pairing_heap> (n, seed);
+}
+
+auto test_baseline_map()
+{
+    using namespace mix::ds;
+    auto constexpr seed = 65468321; 
+    auto constexpr n    = 1'000;
+
+    map_test_insert<std::map>(n, seed);
 }
 
 auto example_priority_queue()
@@ -68,7 +80,8 @@ int main()
 {
     auto watch = mix::utils::stopwatch();
     
-    test_pairing_heap();
+    // test_pairing_heap();
+    test_baseline_map();
     // example_priority_queue();
 
     auto const elapsed = watch.elapsed_time().count();

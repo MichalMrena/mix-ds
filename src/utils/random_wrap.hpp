@@ -31,6 +31,9 @@ namespace mix::utils
         random_uniform_int(IntType const min, IntType const max);
         random_uniform_int(IntType const min, IntType const max, unsigned long const seed);
         
+        /**
+            @return uniformly distributed integral type from [min, max] (!!! inclusive)
+         */
         auto next_int () -> IntType;
 
     private:

@@ -6,10 +6,11 @@
     - [Priority queue](#priority-queue)
 * [Examples](#examples)
     - [Priority queue](#priority-queue-1)
+    - [Table](#table-1)
 * [Comparison](#comparison)
 
 # Intro
-This is a small data structure library for C++. Some structures are useful in practice and some of them that are interesting in theory can be used in some experiments and comparisons. Each structure is implemented in a single independent [header file](./src/lib). Using them is therefore very simple. You just need to include particular header file in your project. You will also need a compiler that supports C++17. It was tested with ```gcc 10.1.0```, ```clang++ 10.0.0``` and ```Visual Studio 2019```.
+This is a small data structure library for C++. Some structures are useful in practice and some of them that are interesting in theory can be used in some experiments and comparisons. Each structure is implemented in a single independent [header file](./src/lib). Using them is therefore very simple. You just need to include particular header file in your project. You will also need a compiler that supports C++17. It was tested with `gcc 10.1.0`, `clang++ 10.0.0` and `Visual Studio 2019`.
 
 # Data structures
 ## Pairing heap
@@ -65,15 +66,15 @@ auto decrease_key (handle_t const handle) -> void; // 1.
 auto decrease_key (iterator pos)          -> void; // 2.
 auto decrease_key (const_iterator pos)    -> void; // 3.
 ```
-1. ... 3. Corrects a position of an element that is associated with given handle/iterator after its priority have been **increased**. See the **example** below.  
+1. ... 3. Corrects a position of an element that is associated with given handle/iterator after its priority have been **increased**. See the [example](#priority-queue-1) below.  
 
-*Similar operation ```increase_key``` is not supported in general but might be supported by some specific implementations.*
+*Similar operation `increase_key` is not supported in general but might be supported by some specific implementations.*
 
 ### Other
-Each priority queue takes [Compare](https://en.cppreference.com/w/cpp/named_req/Compare) type as the second template parameter. [std::less](https://en.cppreference.com/w/cpp/utility/functional/less) is used by default so as long as ```operator<``` is defined for given type of elements you don't need to provide your own.
+Each priority queue takes [Compare](https://en.cppreference.com/w/cpp/named_req/Compare) type as the second template parameter. [std::less](https://en.cppreference.com/w/cpp/utility/functional/less) is used by default so as long as `operator<` is defined for given type of elements you don't need to provide your own.
 
 ## Table
-*Comming soon...*
+Our tables (maps) have the same interface and behaviour as STL maps. You can check [std::map](https://en.cppreference.com/w/cpp/container/map) for detailed documentation. In the [examples section](##table-1) you can find a couple of notes on using a map correctly. 
 
 # Examples
 ## Priority queue
@@ -88,7 +89,7 @@ auto handles = std::vector { heap.insert(20)
 // std::vector<handle_t>
 
 auto handle30to5 = handles.back();
-// Dereference it just like an iterator:
+// Dereference it just like an output iterator:
 *handle30to5 = 5;
 heap.decrease_key(handle30to5);
 
@@ -102,6 +103,93 @@ for (auto i : heap)
     std::cout << i << std::endl; // 20
 }
 ```
+
+## Table
+First thing we need to clarify is that map stores keys and elements inside `std::pair<const Key, Value>`. Notice that the key is always `const` whether you specify it or not.  
+For our examples we will use this simple `struct person` as a value type and `int` as a key type. `person` declared like this is [aggregate](https://en.cppreference.com/w/cpp/language/aggregate_initialization) TODO.
+```C++
+struct person
+{
+    int age_;
+    std::string name_;
+};
+
+std::map<int, person> personMap;
+```
+There are couple of different ways to insert an element into a map. First is to use the `insert` member function which takes pair as parameter.
+```C++
+using pair_t = std::map<int, person>::value_type;
+// pair_t is std::pair<const int, person>
+
+pair_t p(1, person {27, "Daniel"});
+
+personMap.insert( p ); // 1.
+personMap.insert( pair_t(2, person {47, "Jack"}) ); // 2.
+personMap.insert( std::make_pair(3, person {80, "Teal'c"}) ); // 3.
+```
+1. New pair in the map will be copy constructed from p.
+2. New pair in the map will be move constructed from the temporary.
+3. `std::make_pair` returns a `std::pair<int, person>` wich is a different type than `std::pair<const int, person>`. However, insert has an overload which takes anything from which a `std::pair<const int, person>` can be [constructed from](https://en.cppreference.com/w/cpp/utility/pair/pair) so in this case the new pair will be memberwise move constructed from the temporary pair.
+
+We can avoid creating a temporary pair by using `emplace` which enables us to construct the new pair directly *in* the map. 
+```C++
+personMap.emplace( 4, person {32, "Samantha"} ); // 1.
+personMap.emplace( std::piecewise_construct
+                 , std::forward_as_tuple(5) 
+                 , std::forward_as_tuple(55, "George") ); // 2.
+```
+1. New pair will be constructed in place using given arguments. Note that person will still be move constructed and not constructed in place.
+2. New pair and its members will be constructed in place using given arguments. This solution is however bit more verbose so it is up to you to consider whether its worth to do it in order to avoid the move which is usually cheap.
+
+One disadvatage of `emplace` is that it always creates a new pair (in order to have access to the key) and in case there already is an element associated with given key it discards that pair. That is why C++17 introduced `try_emplace`.
+```C++
+personMap.try_emplace(4, 32, "Samantha"); // 1.
+personMap.try_emplace(6, 28, "Jonas");    // 2.
+```
+1. Does nothing since there already is a key `4`. Complexity depends on a particular map implementation since the key always needs to be checked.
+2. New pair is constructed in place. The key is copy/move constructed from given key and the value is constructed in place from given arguments.
+
+`operator[]` can also be used to insert elements into a map. 
+```C++
+personMap[7] = person(40, "Cameron"); // 1.
+```
+1. Since there is no element associated with key `7` first a new pair is created. The key is copy/move constructed from the given key and the value is [value-initialized](https://en.cppreference.com/w/cpp/language/value_initialization) (person will look like this {.age = 0, .name = ""}).  
+
+Behaviour of `operator[]` is useful when you don't know whether there is an element associated with given key and in case there is you want to assign new value to it. Disadvantage of this approach is that if insertion is performed an *empty* element is first constructed and then assigned with actual value. That is why C++17 introduced `insert_or_assign` which does exactly what it says it does and unlike `operator[]` it does not create temporary *empty* value.
+```C++
+personMap.insert_or_assign(7, person(43, "Cameron")); // 1.
+personMap.insert_or_assign(8, person(33, "Vala"));    // 2.
+```
+1. Copy/move assigns the person with correct age to the element that already is in the map.
+2. Copy/move constructs the new pair as if by using `insert`.  
+
+There are three different ways to access elements of a map.
+```C++
+auto daniel = personMap.at(1);   // 1.
+auto jackIt = personMap.find(2); // 2.
+if (personMap.end() != jackIt)
+{
+    auto jack = jackIt->second;
+}
+auto hank = personMap[9]; // 3.
+```
+1. Returns reference to the element associated with given key. Throws `std::out_of_range` if there is no such key.
+2. Returns iterator to the pair associated with given key. If there is no such element returns end iterator.
+3. Returns reference to the element associated with given key. If there is no such element it value constract the element and returns reference to it. This is not what we wanted in the example above so you can see the disadvantage of `operator[]`.
+
+Removing elements from a map is quite simple.
+```C++
+auto danielIt = personMap.find(1);
+personMap.erase(danielIt); // 1.
+personMap.erase(9);        // 2.
+```
+1. Removes pair associated with given iterator.
+2. Removes pair (if there is one) associated with given key.
+
+#### Recomendations
+* use `emplace` or `try_emplace` for insertion
+* use `at` or `find` for element access
+* use `insert_or_assign` over `operator[]` unless you need exact behaviour of `operator[]`
 
 # Comparison
 Some structures in this library are also implemented in other libraries. In this comparison we want to show that our structures are comparable with high quality libraries as Boost. In the test we have performed series of random operations (insertions, deletions, ...) on the particular structure that contained millions of elements. This of course doesn't necessarily simulate practical usage. Numbers in the table show the time it took finish the test. 
