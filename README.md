@@ -2,6 +2,7 @@
 * [Intro](#intro)
 * [Data structures](#data-structures)
     - [Pairing heap](#pairing-heap)
+    - [Simple map](#simple-map)
 * [Documentation](#documentation)
     - [Priority queue](#priority-queue)
 * [Examples](#examples)
@@ -15,7 +16,10 @@ This is a small data structure library for C++. Some structures are useful in pr
 # Data structures
 ## Pairing heap
 Pairing heap is simple and efficient implementation of the [priority queue](https://en.wikipedia.org/wiki/Priority_queue). It performs very well in [Discrete-event simulation](https://en.wikipedia.org/wiki/Discrete-event_simulation). You can read a formal description on the [Wikipedia](https://en.wikipedia.org/wiki/Pairing_heap) , in the [original paper](https://www.cs.cmu.edu/~sleator/papers/pairing-heaps.pdf) and on many other places on the [internet](https://www.google.com/search?q=pairing+heap&oq=pairing+heap). We are not gonna repeat that here.  
-Pairing heap is implemented in [Boost](https://www.boost.org/doc/libs/1_73_0/doc/html/boost/heap/pairing_heap.html) and you will probably find many other implementations but some of them are naive or not generic. Our implementation is a generic recursion-free container. We use a binary tree to represent the heap and we also support two *merge modes* => two pass merge *(default)* and fifo queue. It can be specified by a template parameter.
+Pairing heap is implemented in [Boost](https://www.boost.org/doc/libs/1_73_0/doc/html/boost/heap/pairing_heap.html) and you will probably find many other implementations but some of them are naive or not generic. Our implementation is a generic, allocator-aware and recursion-free container. We use a binary tree to represent the heap and we also support two *merge modes* => two pass merge *(default)* and fifo queue. It can be specified by a template parameter.
+
+## Simple map
+TODO
 
 # Documentation
 Naming conventions and interfaces are almost identical to STL. Each structure also satisfies [Container](https://en.cppreference.com/w/cpp/named_req/Container) named requirements. If you are familiar with [STL containers](https://en.cppreference.com/w/cpp/container) using these structures should be easy.  
@@ -74,7 +78,7 @@ auto decrease_key (const_iterator pos)    -> void; // 3.
 Each priority queue takes [Compare](https://en.cppreference.com/w/cpp/named_req/Compare) type as the second template parameter. [std::less](https://en.cppreference.com/w/cpp/utility/functional/less) is used by default so as long as `operator<` is defined for given type of elements you don't need to provide your own.
 
 ## Table
-Our tables (maps) have the same interface and behaviour as STL maps. You can check [std::map](https://en.cppreference.com/w/cpp/container/map) for detailed documentation. In the [examples section](##table-1) you can find a couple of notes on using a map correctly. 
+Our tables (maps) have almost the same interface and behaviour as STL maps. You can check [std::map](https://en.cppreference.com/w/cpp/container/map) for detailed documentation. In the [examples section](##table-1) you can find a couple of notes on how to use a map correctly. 
 
 # Examples
 ## Priority queue
@@ -106,7 +110,7 @@ for (auto i : heap)
 
 ## Table
 First thing we need to clarify is that map stores keys and elements inside `std::pair<const Key, Value>`. Notice that the key is always `const` whether you specify it or not.  
-For our examples we will use this simple `struct person` as a value type and `int` as a key type. `person` declared like this is [aggregate](https://en.cppreference.com/w/cpp/language/aggregate_initialization) TODO.
+For our examples we will use this simple `struct person` as a value type and `int` as a key type. `person` declared like this is [aggregate](https://en.cppreference.com/w/cpp/language/aggregate_initialization). Prior to `C++20` this struct would need to have a constructor that initializes its fields in order to use `emplace` and similar functions metioned below. `C++20` made som changes that are beyond the scope of this example. All we need to know is that in `C++20` we can also use `()` for unifrom initialization *(but there is still a difference between `()` and `{}`)* and our `person` doesn't need a constructor.
 ```C++
 struct person
 {

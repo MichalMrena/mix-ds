@@ -1,4 +1,5 @@
 #include "lib/pairing_heap.hpp"
+#include "lib/simple_map.hpp"
 #include "test/queue_test.hpp"
 #include "test/map_test.hpp"
 #include "utils/stopwatch.hpp"
@@ -43,10 +44,11 @@ auto test_pairing_heap()
 auto test_baseline_map()
 {
     using namespace mix::ds;
-    auto constexpr seed = 65468321; 
-    auto constexpr n    = 1'000;
+    auto constexpr seed = 935135; 
+    auto constexpr n    = 100'000;
 
-    map_test_insert<std::map>(n, seed);
+    map_test_find_erase<simple_map>(n, seed);
+    map_test_insert<simple_map>(n, seed);
 }
 
 auto example_priority_queue()

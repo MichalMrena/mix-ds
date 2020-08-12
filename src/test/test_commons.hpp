@@ -20,6 +20,14 @@ namespace mix::ds
         }
     }
 
+    inline auto CHECK(bool const b, std::string_view testName)
+    {
+        if (!b)
+        {
+            std::cout << "!!! " << testName << " failed." << std::endl;
+        }
+    }
+
     inline auto make_seeder(unsigned long const seed)
     {
         using seed_t = unsigned long;

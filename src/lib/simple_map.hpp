@@ -8,6 +8,7 @@
 #include <utility>
 #include <memory>
 #include <type_traits>
+#include <tuple>
 
 namespace mix::ds
 {
@@ -56,29 +57,31 @@ namespace mix::ds
         template<class Alloc, class = uses_allocator<Alloc>> simple_map (simple_map const&, Alloc const&);
         template<class Alloc, class = uses_allocator<Alloc>> simple_map (simple_map&&,      Alloc const&);
 
-        auto at         (Key const& k)                            -> reference;
-        auto at         (Key const& k) const                      -> const_reference;
-        auto find       (Key const& k)                            -> iterator;
-        auto find       (Key const& k) const                      -> const_iterator;
-        auto operator[] (Key const& k)                            -> reference;
-        auto operator[] (Key&& k)                                 -> reference;
+        auto at         (key_type const& k)                       -> reference;
+        auto at         (key_type const& k) const                 -> const_reference;
+        auto find       (key_type const& k)                       -> iterator;
+        auto find       (key_type const& k) const                 -> const_iterator;
+        auto operator[] (key_type const& k)                       -> reference;
+        auto operator[] (key_type&& k)                            -> reference;
         auto insert     (value_type const& v)                     -> std::pair<iterator, bool>;
         auto insert     (value_type&& v)                          -> std::pair<iterator, bool>;
         auto insert     (std::initializer_list<value_type> ilist) -> void;
-        auto contains   (Key const& k ) const                     -> bool;
+        auto contains   (key_type const& k ) const                -> bool;
         auto erase      (key_type const& k)                       -> size_type;
         auto erase      (iterator pos)                            -> iterator;
         auto erase      (const_iterator pos)                      -> iterator;
         
-        template<class K>       auto find        (K const& k )                       -> std::enable_if_t<aux_impl::is_transparent_v<K>, iterator>;
-        template<class K>       auto find        (K const& k ) const                 -> std::enable_if_t<aux_impl::is_transparent_v<K>, const_iterator>;
-        template<class K>       auto contains    (K const& k ) const                 -> std::enable_if_t<aux_impl::is_transparent_v<K>, bool>;
-        template<class... Args> auto emplace     (Args&&... args)                    -> std::pair<iterator, bool>;
-        template<class... Args> auto try_emplace (key_type const& k, Args&&... args) -> std::pair<iterator, bool>;
-        template<class... Args> auto try_emplace (key_type&& k, Args&&... args)      -> std::pair<iterator, bool>;
-        template<class P>       auto insert      (P&& v)                             -> std::enable_if_t<std::is_constructible_v<value_type, P&&>, std::pair<iterator,bool>>;
-        template<class InputIt> auto insert      (InputIt first, InputIt last)       -> void;
-        
+        template<class K>       auto find             (K const& k )                       -> std::enable_if_t<aux_impl::is_transparent_v<K>, iterator>;
+        template<class K>       auto find             (K const& k ) const                 -> std::enable_if_t<aux_impl::is_transparent_v<K>, const_iterator>;
+        template<class K>       auto contains         (K const& k ) const                 -> std::enable_if_t<aux_impl::is_transparent_v<K>, bool>;
+        template<class... Args> auto emplace          (Args&&... args)                    -> std::pair<iterator, bool>;
+        template<class... Args> auto try_emplace      (key_type const& k, Args&&... args) -> std::pair<iterator, bool>;
+        template<class... Args> auto try_emplace      (key_type&& k, Args&&... args)      -> std::pair<iterator, bool>;
+        template<class P>       auto insert           (P&& v)                             -> std::enable_if_t<std::is_constructible_v<value_type, P&&>, std::pair<iterator,bool>>;
+        template<class InputIt> auto insert           (InputIt first, InputIt last)       -> void;
+        template<class M>       auto insert_or_assign (key_type const& k, M&& obj)        -> std::pair<iterator, bool>;
+        template<class M>       auto insert_or_assign (key_type&& k, M&& obj)             -> std::pair<iterator, bool>;
+
         auto operator= (simple_map rhs) -> simple_map&;
         auto clear     ()               -> void;
         auto begin     ()               -> iterator;
@@ -100,12 +103,12 @@ namespace mix::ds
         
         template<class K>       
         auto bracket_op_impl (K&& k) -> reference;
-        
-        template<class K, class Inserter, class... Args > 
-        auto possibly_insert (K&& k, Inserter&& inserter, Args&&... args) -> std::pair<iterator, bool>; 
 
         template<class K>
         auto find_impl (K const& k) const -> const_iterator;
+
+        template<class K, class M>
+        auto insert_or_assign_impl (K&& k, M&& obj) -> std::pair<iterator, bool>;
 
         auto to_iterator (const_iterator cit) -> iterator;
         auto it_to_last  ()                   -> iterator;
@@ -335,10 +338,18 @@ namespace mix::ds
     auto simple_map<Key, T, KeyEqual, Container>::emplace
         (Args&&... args) -> std::pair<iterator, bool>
     {
-        auto pair      = value_type {std::forward<Args>(args)...};
-        auto const k   = pair.first;
-        auto const ins = [this](auto&&, auto&& p) { this->data_.emplace_back(std::move(p)); };
-        return this->possibly_insert(k, ins, std::move(pair));
+        auto pair     = value_type(std::forward<Args>(args)...);
+        auto const it = this->find(pair.first);
+        
+        if (this->end() == it)
+        {
+            data_.emplace_back(std::move(pair));
+            return std::make_pair(this->it_to_last(), true);
+        }
+        else
+        {
+            return std::make_pair(it, false);
+        }
     }
 
     template<class Key, class T, class KeyEqual, class Container>
@@ -398,6 +409,22 @@ namespace mix::ds
     }
 
     template<class Key, class T, class KeyEqual, class Container>
+    template<class M>
+    auto simple_map<Key, T, KeyEqual, Container>::insert_or_assign
+        (key_type const& k, M&& obj) -> std::pair<iterator, bool>
+    {
+        return this->insert_or_assign_impl(k, std::forward<M>(obj));
+    }
+
+    template<class Key, class T, class KeyEqual, class Container>
+    template<class M>
+    auto simple_map<Key, T, KeyEqual, Container>::insert_or_assign
+        (key_type&& k, M&& obj) -> std::pair<iterator, bool>
+    {
+        return this->insert_or_assign_impl(std::move(k), std::forward<M>(obj));
+    }
+
+    template<class Key, class T, class KeyEqual, class Container>
     auto simple_map<Key, T, KeyEqual, Container>::contains
         (Key const& k) const -> bool
     {
@@ -447,11 +474,19 @@ namespace mix::ds
     auto simple_map<Key, T, KeyEqual, Container>::try_emplace_impl
         (K&& k, Args&&... args) -> std::pair<iterator, bool>
     {
-        auto const ins = [this](auto&& k, auto&&... args) 
-        { data_.emplace_back( std::piecewise_construct
-                            , std::forward_as_tuple(std::forward<K>(k))
-                            , std::forward_as_tuple(std::forward<Args>(args)...) ); };
-        return this->possibly_insert(std::forward<K>(k), ins, std::forward<Args>(args)...);
+        auto const it = this->find(k);
+
+        if (this->end() == it)
+        {
+            data_.emplace_back( std::piecewise_construct
+                              , std::forward_as_tuple(std::forward<K>(k))
+                              , std::forward_as_tuple(std::forward<Args>(args)...) );
+            return std::make_pair(this->it_to_last(), true);
+        }
+        else
+        {
+            return std::make_pair(it, false);
+        }
     }
 
     template<class Key, class T, class KeyEqual, class Container>
@@ -459,9 +494,17 @@ namespace mix::ds
     auto simple_map<Key, T, KeyEqual, Container>::insert_impl
         (V&& v) -> std::pair<iterator, bool>
     {
-        auto const ins = [this](auto&&, auto&& v) 
-        { this->data_.emplace_back(std::forward<V>(v)); };
-        return this->possibly_insert(v.first, ins, std::forward<V>(v));
+        auto const it = this->find(v.first);
+
+        if (this->end() == it)
+        {
+            this->data_.emplace_back(std::forward<V>(v));
+            return std::make_pair(this->it_to_last(), true);
+        }
+        else
+        {
+            return std::make_pair(it, false);
+        }
     }
 
     template<class Key, class T, class KeyEqual, class Container>
@@ -469,20 +512,22 @@ namespace mix::ds
     auto simple_map<Key, T, KeyEqual, Container>::bracket_op_impl
         (K&& k) -> reference
     {
-        auto const ins = [this](auto&& k) 
-        { data_.emplace_back( std::piecewise_construct
-                            , std::forward_as_tuple(std::forward<K>(k))
-                            , std::tuple<> {} ); };
-        return this->possibly_insert(std::forward<K>(k), ins).first->second;
+        auto it = this->find(k);
+
+        if (this->end() == it)
+        {
+            return this->try_emplace(std::forward<K>(k)).first->second;
+        }
+        else
+        {
+            return it->second;
+        }
     }
 
     template<class Key, class T, class KeyEqual, class Container>
     auto simple_map<Key, T, KeyEqual, Container>::to_iterator
         (const_iterator cit) -> iterator
     {
-        // auto it = this->begin();
-        // std::advance(it, std::distance(this->cbegin(), cit));
-        // return it;
         return std::next(this->begin(), std::distance(this->cbegin(), cit));
     }
 
@@ -501,37 +546,42 @@ namespace mix::ds
     }
 
     template<class Key, class T, class KeyEqual, class Container>
-    template<class K, class Inserter, class... Args>
-    auto simple_map<Key, T, KeyEqual, Container>::possibly_insert
-        (K&& k, Inserter&& inserter, Args&&... args) -> std::pair<iterator, bool>
-    {
-        auto const it = this->find(k);
-        if (this->end() != it)
-        {
-            return std::make_pair(it, false);
-        }
-
-        inserter(std::forward<K>(k), std::forward<Args>(args)...);
-        
-        return std::make_pair(this->it_to_last(), true);
-    }
-
-    template<class Key, class T, class KeyEqual, class Container>
     template<class K>
     auto simple_map<Key, T, KeyEqual, Container>::find_impl
         (K const& k) const -> const_iterator
     {
         return std::find_if( std::begin(data_), std::end(data_)
-                           , [&k, eq = KeyEqual {}](auto const& p) { return eq(p.first, k); } );
+                           , [&k, eq = KeyEqual()](auto const& p) { return eq(p.first, k); } );
+    }
+
+    template<class Key, class T, class KeyEqual, class Container>
+    template<class K, class M>
+    auto simple_map<Key, T, KeyEqual, Container>::insert_or_assign_impl
+        (K&& k, M&& obj) -> std::pair<iterator, bool>
+    {
+        auto it = this->find(k);
+
+        if (this->end() == it)
+        {
+            data_.emplace_back( std::piecewise_construct
+                              , std::forward_as_tuple(std::forward<K>(k))
+                              , std::forward_as_tuple(std::forward<M>(obj)) );
+            return std::make_pair(this->it_to_last(), true);
+        }
+        else
+        {
+            it->second = std::forward<M>(obj);
+            return std::make_pair(it, false);
+        }
     }
 
 
     template<class Key, class T, class KeyEqual>
-    auto make_simple_map (std::size_t const initialSize) -> simple_map<Key, T, KeyEqual, std::vector<std::pair<const Key, T>>>
+    auto make_simple_map (std::size_t const initialSize) -> simple_map<Key, T, KeyEqual, std::vector<std::pair<Key const, T>>>
     {
-        auto vec = std::vector<std::pair<const Key, T>> {};
+        auto vec = std::vector<std::pair<Key const, T>>();
         vec.reserve(initialSize);
-        return simple_map<Key, T, KeyEqual, decltype(vec)> {std::move(vec)};
+        return simple_map<Key, T, KeyEqual, decltype(vec)>(std::move(vec));
     }
 
     template<class Key, class T, class KeyEqual, class Container>
