@@ -5,6 +5,7 @@
     - [Simple map](#simple-map)
 * [Documentation](#documentation)
     - [Priority queue](#priority-queue)
+    - [Table](#table)
 * [Examples](#examples)
     - [Priority queue](#priority-queue-1)
     - [Table](#table-1)
@@ -19,7 +20,7 @@ Pairing heap is simple and efficient implementation of the [priority queue](http
 Pairing heap is implemented in [Boost](https://www.boost.org/doc/libs/1_73_0/doc/html/boost/heap/pairing_heap.html) and you will probably find many other implementations but some of them are naive or not generic. Our implementation is a generic, allocator-aware and recursion-free container. We use a binary tree to represent the heap and we also support two *merge modes* => two pass merge *(default)* and fifo queue. It can be specified by a template parameter.
 
 ## Simple map
-TODO
+Simple map is a container adapter which takes a container *(`std::vector` by default)* and turns it into a map. It might be useful when you need a map semantics but you are only working with very small amount of data. In that case simple vector might perform better than sophisticated structures like red-black tree or hash table.
 
 # Documentation
 Naming conventions and interfaces are almost identical to STL. Each structure also satisfies [Container](https://en.cppreference.com/w/cpp/named_req/Container) named requirements. If you are familiar with [STL containers](https://en.cppreference.com/w/cpp/container) using these structures should be easy.  
@@ -114,8 +115,8 @@ For our examples we will use this simple `struct person` as a value type and `in
 ```C++
 struct person
 {
-    int age_;
-    std::string name_;
+    int age;
+    std::string name;
 };
 
 std::map<int, person> personMap;
@@ -150,7 +151,7 @@ One disadvatage of `emplace` is that it always creates a new pair (in order to h
 personMap.try_emplace(4, 32, "Samantha"); // 1.
 personMap.try_emplace(6, 28, "Jonas");    // 2.
 ```
-1. Does nothing since there already is a key `4`. Complexity depends on a particular map implementation since the key always needs to be checked.
+1. Does nothing since there already is a key `4`. Complexity depends on a particular map implementation since the key uniqueness always needs to be checked.
 2. New pair is constructed in place. The key is copy/move constructed from given key and the value is constructed in place from given arguments.
 
 `operator[]` can also be used to insert elements into a map. 
@@ -179,7 +180,7 @@ auto hank = personMap[9]; // 3.
 ```
 1. Returns reference to the element associated with given key. Throws `std::out_of_range` if there is no such key.
 2. Returns iterator to the pair associated with given key. If there is no such element returns end iterator.
-3. Returns reference to the element associated with given key. If there is no such element it value constract the element and returns reference to it. This is not what we wanted in the example above so you can see the disadvantage of `operator[]`.
+3. Returns reference to the element associated with given key. If there is no such element it value constructs the element and returns reference to it. This is not what we wanted in the example above so you can see the disadvantage of `operator[]`.
 
 Removing elements from a map is quite simple.
 ```C++
@@ -193,7 +194,7 @@ personMap.erase(9);        // 2.
 #### Recomendations
 * use `emplace` or `try_emplace` for insertion
 * use `at` or `find` for element access
-* use `insert_or_assign` over `operator[]` unless you need exact behaviour of `operator[]`
+* use `insert_or_assign` over `operator[]` unless you need the exact behaviour of `operator[]`
 
 # Comparison
 Some structures in this library are also implemented in other libraries. In this comparison we want to show that our structures are comparable with high quality libraries as Boost. In the test we have performed series of random operations (insertions, deletions, ...) on the particular structure that contained millions of elements. This of course doesn't necessarily simulate practical usage. Numbers in the table show the time it took finish the test. 

@@ -498,7 +498,7 @@ namespace mix::ds
 
         if (this->end() == it)
         {
-            this->data_.emplace_back(std::forward<V>(v));
+            data_.emplace_back(std::forward<V>(v));
             return std::make_pair(this->it_to_last(), true);
         }
         else
