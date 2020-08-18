@@ -79,7 +79,7 @@ auto decrease_key (const_iterator pos)    -> void; // 3.
 Each priority queue takes [Compare](https://en.cppreference.com/w/cpp/named_req/Compare) type as the second template parameter. [std::less](https://en.cppreference.com/w/cpp/utility/functional/less) is used by default so as long as `operator<` is defined for given type of elements you don't need to provide your own.
 
 ## Table
-Our tables (maps) have almost the same interface and behaviour as STL maps. You can check [std::map](https://en.cppreference.com/w/cpp/container/map) for detailed documentation. In the [examples section](##table-1) you can find a couple of notes on how to use a map correctly. 
+Our tables (maps) have almost the same interface and behaviour as STL maps. You can check [std::map](https://en.cppreference.com/w/cpp/container/map) for detailed documentation. In the [examples section](#table-1) you can find a couple of notes on how to use a map correctly. 
 
 # Examples
 ## Priority queue

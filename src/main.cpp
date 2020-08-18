@@ -1,7 +1,9 @@
 #include "lib/pairing_heap.hpp"
 #include "lib/simple_map.hpp"
+#include "lib/brodal_queue.hpp"
 #include "test/queue_test.hpp"
 #include "test/map_test.hpp"
+#include "test/brodal_test.hpp"
 #include "utils/stopwatch.hpp"
 #include "compare/boost_pairing_heap.hpp"
 
@@ -51,6 +53,12 @@ auto test_baseline_map()
     map_test_insert<simple_map>(n, seed);
 }
 
+auto test_brodal_queue()
+{
+    using namespace mix::ds;
+    test_guide();
+}
+
 auto example_priority_queue()
 {
     auto heap = mix::ds::pairing_heap<int>();
@@ -83,8 +91,9 @@ int main()
     auto watch = mix::utils::stopwatch();
     
     // test_pairing_heap();
-    test_baseline_map();
+    // test_baseline_map();
     // example_priority_queue();
+    test_brodal_queue();
 
     auto const elapsed = watch.elapsed_time().count();
     std::cout << "Time taken " << elapsed << " ms" << std::endl;
