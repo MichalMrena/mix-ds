@@ -16,7 +16,7 @@ This is a small data structure library for C++. Some structures are useful in pr
 
 # Data structures
 ## Pairing heap
-Pairing heap is simple and efficient implementation of the [priority queue](https://en.wikipedia.org/wiki/Priority_queue). It performs very well in [Discrete-event simulation](https://en.wikipedia.org/wiki/Discrete-event_simulation). You can read a formal description on the [Wikipedia](https://en.wikipedia.org/wiki/Pairing_heap) , in the [original paper](https://www.cs.cmu.edu/~sleator/papers/pairing-heaps.pdf) and on many other places on the [internet](https://www.google.com/search?q=pairing+heap&oq=pairing+heap). We are not gonna repeat that here.  
+Pairing heap is simple and efficient implementation of the [priority queue](https://en.wikipedia.org/wiki/Priority_queue). It performs very well in [Discrete-event simulation](https://en.wikipedia.org/wiki/Discrete-event_simulation). You can read the formal description on [Wikipedia](https://en.wikipedia.org/wiki/Pairing_heap) , in the [original paper](https://www.cs.cmu.edu/~sleator/papers/pairing-heaps.pdf) and on many other places on the [internet](https://www.google.com/search?q=pairing+heap&oq=pairing+heap). We are not gonna repeat that here.  
 Pairing heap is implemented in [Boost](https://www.boost.org/doc/libs/1_73_0/doc/html/boost/heap/pairing_heap.html) and you will probably find many other implementations but some of them are naive or not generic. Our implementation is a generic, allocator-aware and recursion-free container. We use a binary tree to represent the heap and we also support two *merge modes* => two pass merge *(default)* and fifo queue. It can be specified by a template parameter.
 
 ## Simple map

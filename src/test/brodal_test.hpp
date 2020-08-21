@@ -2,6 +2,7 @@
 #define MIX_DS_BRODAL_TEST_HPP
 
 #include "test_commons.hpp"
+#include "queue_test.hpp"
 #include "../lib/brodal_queue.hpp"
 #include "../utils/string_utils.hpp"
 
@@ -197,6 +198,31 @@ namespace mix::ds
         // guide_tester({2, 1, 1, 0, 0}).do_inc({4}).expect({1, 1, 1, 0, 0});
         // guide_tester({2, 1, 0, 2, 0}).do_inc({1}).expect({0, 1, 1, 1, 0});
         // guide_tester({0, 1, 1, 1, 0}).do_inc({1}).expect({0, 1, 2, 0, 0});
+    }
+
+    inline auto test_queue()
+    {
+        auto queue = brodal_queue<int>();
+
+        queue.insert(20);
+        queue.insert(10);
+        queue.insert(30);
+
+        std::cout << queue.delete_min() << std::endl;
+        std::cout << queue.delete_min() << std::endl;
+        std::cout << queue.delete_min() << std::endl;
+    }
+
+    inline auto real_test_brodal_queue()
+    {
+        auto constexpr seed = 354641;
+        // auto constexpr n    = 1'000'000;
+        auto constexpr n    = 10'000;
+
+        // queue_test_insert<brodal_queue>(n, seed);
+        // queue_test_delete<brodal_queue>(n, seed);
+        // queue_test_decrease<brodal_queue>(n, seed);
+        // queue_test_other<brodal_queue>(n, seed);
     }
 }
 

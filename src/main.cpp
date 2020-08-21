@@ -6,8 +6,10 @@
 #include "test/brodal_test.hpp"
 #include "utils/stopwatch.hpp"
 #include "compare/boost_pairing_heap.hpp"
+#include "compare/dijkstra.hpp"
 
 #include <map>
+#include <iomanip>
 
 auto test_pairing_heap()
 {
@@ -56,7 +58,29 @@ auto test_baseline_map()
 auto test_brodal_queue()
 {
     using namespace mix::ds;
-    test_guide();
+    // test_guide();
+    // test_queue();
+    real_test_brodal_queue();
+}
+
+auto test_dijkstra()
+{
+    using namespace mix::ds;
+    auto vs = load_road_graph("/mnt/c/Users/mrena/Downloads/USA-road-d.NY.gr");
+    // find_point_to_all<pairing_heap>(vs, 0);
+    // find_point_to_all<boost_pairing_heap>(vs, 0);
+    find_point_to_all<brodal_queue>(vs, 0);
+
+    auto totalDist = 0.0;
+    for (auto const& v : vs.vertices)
+    {
+        if (std::numeric_limits<dist_t>::max() != v.distAprox)
+        {
+            totalDist += v.distAprox;
+        }
+    }
+
+    std::cout << std::fixed << totalDist << '\n';
 }
 
 auto example_priority_queue()
@@ -94,6 +118,7 @@ int main()
     // test_baseline_map();
     // example_priority_queue();
     test_brodal_queue();
+    // test_dijkstra();
 
     auto const elapsed = watch.elapsed_time().count();
     std::cout << "Time taken " << elapsed << " ms" << std::endl;
