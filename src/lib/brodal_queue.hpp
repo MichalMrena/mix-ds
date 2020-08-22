@@ -6,6 +6,8 @@
 #include <memory>
 #include <string>
 #include <stack>
+#include <type_traits>
+#include <functional>
 
 namespace mix::ds
 {
@@ -61,7 +63,7 @@ namespace mix::ds
     class brodal_node;
 
     /**
-     *  Result of delinkind a single Brodal node.
+     *  Result of delinking a single Brodal node.
      */
     template<class T, class Compare>
     struct delinked_nodes
@@ -156,7 +158,7 @@ namespace mix::ds
     /**
         Iterator of a single brodal tree.
      */
-    template<class T>
+    template<class T, class Compare>
     class brodal_tree_iterator
     {
     public:
@@ -169,6 +171,7 @@ namespace mix::ds
 
     public:
         brodal_tree_iterator () = default;
+        brodal_tree_iterator (std::nullptr_t);
         brodal_tree_iterator (node_t* const root);
 
         auto operator++ ()       -> brodal_tree_iterator&;
@@ -180,6 +183,41 @@ namespace mix::ds
 
     public:
         std::stack<node_t*> stack_;
+    };
+
+    /**
+        Iterator for the Brodal queue.
+     */
+    template<class T, class Compare, class Allocator, bool IsConst>
+    class brodal_queue_iterator
+    {
+    public:
+        using difference_type   = std::ptrdiff_t;
+        using value_type        = std::conditional_t<IsConst, T const, T>;
+        using pointer           = value_type*;
+        using reference         = value_type&;
+        using iterator_category = std::forward_iterator_tag;
+        using node_t            = brodal_node<T, Compare>;
+        using tree_iterator_t   = brodal_tree_iterator<T, Compare>;
+
+    public:
+        brodal_queue_iterator () = default;
+        brodal_queue_iterator (node_t* const t1, node_t* const t2);
+
+        auto operator++ ()       -> brodal_queue_iterator&;
+        auto operator++ (int)    -> brodal_queue_iterator;
+        auto operator*  () const -> reference;
+        auto operator-> () const -> pointer;
+        auto operator== (brodal_queue_iterator const&) const -> bool;
+        auto operator!= (brodal_queue_iterator const&) const -> bool;
+
+    private:
+        auto current () const -> node_t*;
+
+    private:
+        tree_iterator_t  T1Iterator_;
+        tree_iterator_t  T2Iterator_;
+        tree_iterator_t* activeIterator_;
     };
 
     /**
@@ -201,40 +239,8 @@ namespace mix::ds
         friend class brodal_queue;
         brodal_node_handle(node_t* const node);
         node_t* node_;
-    };
-
+    };    
     
-    /**
-        Iterator for a single Brodal tree.
-     */
-    // template<class T, class Compare, class Allocator, class Val>
-    // class brodal_tree_iterator
-    // {
-    // public:
-    //     using difference_type   = std::ptrdiff_t;
-    //     using value_type        = Val;
-    //     using pointer           = value_type*;
-    //     using reference         = value_type&;
-    //     using iterator_category = std::forward_iterator_tag;
-    //     using node_t            = brodal_node<T>;
-    
-    // public:
-    //     brodal_tree_iterator () = default;
-    //     brodal_tree_iterator (node_t* const root);
-
-    //     auto operator++ ()       -> p_tree_iterator&;
-    //     auto operator++ (int)    -> p_tree_iterator;
-    //     auto operator*  () const -> reference;
-    //     auto operator-> () const -> pointer;
-    //     auto operator== (brodal_tree_iterator const&) const -> bool;
-    //     auto operator!= (brodal_tree_iterator const&) const -> bool;
-
-    // private:
-    //     auto current () const -> node_t*;
-
-    // private:
-    //     std::queue<node_t*> queue_;
-    // };
 
 
 // brodal_queue declaration:
@@ -242,9 +248,6 @@ namespace mix::ds
     // Ugly forward declarations:
     template<class T, class Compare>
     class brodal_queue;
-
-    template<class T, class Compare, class Value, class Pointer, class Reference>
-    using brodal_iterator = typename brodal_queue<T, Compare>::template BrodalQueueIterator<Value, Pointer, Reference>;
 
     template<class T, class Compare>
     auto swap(brodal_queue<T, Compare> & first, 
@@ -254,10 +257,6 @@ namespace mix::ds
     auto meld(brodal_queue<T, Compare> & first, 
               brodal_queue<T, Compare> & second) -> brodal_queue<T, Compare>;
 
-    template<class T, class Compare, class Value, class Pointer, class Reference>
-    auto swap(brodal_iterator<T, Compare, Value, Pointer, Reference> & first, 
-              brodal_iterator<T, Compare, Value, Pointer, Reference> & second) noexcept -> void;
-    
     // BrodalQueue declaration:
     template<class T, class Compare = std::less<T>>
     class brodal_queue
@@ -272,10 +271,6 @@ namespace mix::ds
         using index_t = std::uint8_t;
         using rank_t  = index_t;
 
-        // using node_ptr       = brodal_node<T, Compare> *;
-        // using node_cptr      = node_ptr const;
-        // using cnode_ptr      = const brodal_node<T, Compare> *;
-        // using cnode_cptr     = const brodal_node<T, Compare> * const;
         using node_t         = brodal_node<T, Compare>;
         using node_uptr      = std::unique_ptr<node_t>;
         using node_ptr_pair  = std::pair<node_t*, node_t*>;
@@ -458,88 +453,19 @@ namespace mix::ds
             static auto swap(T2RootWrap & first, T2RootWrap & second) -> void;
         };
 
-        struct IteratorNode
-        {
-            node_t const* node {nullptr};
-            iter_node_uptr fallback {nullptr};
-            bool childVisited {false};
-
-            IteratorNode(IteratorNode && other) = default;
-
-            IteratorNode(node_t const* node);
-            IteratorNode(node_t const* node, iter_node_uptr && fallback);
-            IteratorNode(const IteratorNode & other);
-            auto operator= (IteratorNode && rhs) -> IteratorNode &;
-
-            auto operator== (const IteratorNode & rhs) const -> bool;
-            auto operator!= (const IteratorNode & rhs) const -> bool;
-        };
-
-        class TreeIterator
-        {
-        private:
-			// TODO možno netreba alokovať dynamicky? stačil by objekt s operator=
-            iter_node_uptr current {nullptr};            
-
-        public:
-            TreeIterator(node_t const* node);
-            TreeIterator(const TreeIterator & other);
-            TreeIterator(TreeIterator && other) = default;
-
-            auto operator== (const TreeIterator & rhs) const -> bool;
-            auto operator!= (const TreeIterator & rhs) const -> bool;
-            auto operator*  () const -> node_t*;
-            auto operator-> () const -> node_t*;
-            auto operator++ ()       -> TreeIterator &;
-
-            auto swap (TreeIterator & other) noexcept -> void;
-        };
-
-    public:  // Iterator: // TODO std::iterator deprecated remove it
-        template<class Value, class Pointer, class Reference>
-        class BrodalQueueIterator : public std::iterator<std::forward_iterator_tag, Value, std::ptrdiff_t, Pointer, Reference>
-        {
-        private:
-            TreeIterator t1Iterator {nullptr};
-            TreeIterator t2Iterator {nullptr};
-
-        public:
-            BrodalQueueIterator(const BrodalQueueIterator &) = default;
-            BrodalQueueIterator(BrodalQueueIterator &&)      = default;
-            BrodalQueueIterator(node_t const* t1, node_t const* t2);
-            
-            auto operator= (BrodalQueueIterator rhs) -> BrodalQueueIterator &;
-
-            auto operator!= (const BrodalQueueIterator & rhs) const -> bool;
-            auto operator== (const BrodalQueueIterator & rhs) const -> bool;
-
-            auto operator*  () const -> Reference;
-            auto operator-> () const -> Pointer;
-
-            auto operator++ ()    -> BrodalQueueIterator &;
-            auto operator++ (int) -> BrodalQueueIterator;
-
-            friend auto swap<T, Compare, Value, Pointer, Reference>(BrodalQueueIterator & first, BrodalQueueIterator & second) noexcept -> void;
-
-        private:
-            auto activeTree ()       -> TreeIterator &;
-            auto activeTree () const -> const TreeIterator &;
-        };
-
     public:  // Member types:
         using value_type      = T;
-        using pointer         = value_type *;
-        using reference       = value_type &;
-        using const_reference = const value_type &;
-        using iterator        = BrodalQueueIterator<value_type, pointer, reference>;
-        using const_iterator  = BrodalQueueIterator<const value_type, const pointer, const reference>;
+        using pointer         = value_type*;
+        using reference       = value_type&;
+        using const_reference = value_type const&;
+        using iterator        = brodal_queue_iterator<T, Compare, int, false>;
+        using const_iterator  = brodal_queue_iterator<T, Compare, int, true>;
         using difference_type = std::ptrdiff_t;
-        using size_type       = size_t;
+        using size_type       = std::size_t;
         using handle_t        = brodal_node_handle<T, Compare, int>;
-        
 
     private: // BrodalQueue members:
-        size_t queueSize {0};
+        std::size_t queueSize {0};
 
         T1RootWrap T1 {this};
         T2RootWrap T2 {this};
@@ -1358,69 +1284,134 @@ namespace mix::ds
 
 // brodal_tree_iterator definition:
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    p_tree_iterator<T, Compare, MergeMode, Allocator, Val>::p_tree_iterator
-        (node_t* const root) : 
-        // queue_ (std::deque<node_t*> {root})
-        queue_ (std::deque {root})
+    template<class T, class Compare>
+    brodal_tree_iterator<T, Compare>::brodal_tree_iterator
+        (std::nullptr_t)
     {
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto p_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator++
-        () -> p_tree_iterator&
+    template<class T, class Compare>
+    brodal_tree_iterator<T, Compare>::brodal_tree_iterator
+        (node_t* const root) : 
+        stack_ (std::stack {root})
     {
-        if (queue_.front()->left_)
+    }
+
+    template<class T, class Compare>
+    auto brodal_tree_iterator<T, Compare>::operator++
+        () -> brodal_tree_iterator&
+    {
+        // TODO foldr
+        auto next = stack_.top()->child;
+        stack_.pop();
+        while (next)
         {
-            queue_.push(queue_.front()->left_);
+            stack_.push(next);
+            next = next->right;
         }
 
-        if (queue_.front()->right_)
-        {
-            queue_.push(queue_.front()->right_);
-        }
-
-        queue_.pop();
         return *this;
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto p_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator++
-        (int) -> p_tree_iterator
+    template<class T, class Compare>
+    auto brodal_tree_iterator<T, Compare>::operator++
+        (int) -> brodal_tree_iterator
     {
         auto const ret = *this;
         ++(*this);
         return ret;
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto p_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator*
+    template<class T, class Compare>
+    auto brodal_tree_iterator<T, Compare>::operator*
         () const -> reference
     {
-        return **this->current();
+        return *stack_.top();
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto p_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator->
+    template<class T, class Compare>
+    auto brodal_tree_iterator<T, Compare>::operator->
         () const -> pointer
     {
-        return std::addressof(**this);
+        return stack_.top();
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto p_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator==
-        (p_tree_iterator const& rhs) const -> bool
+    template<class T, class Compare>
+    auto brodal_tree_iterator<T, Compare>::operator==
+        (brodal_tree_iterator const& rhs) const -> bool
     {
         return (stack_.empty() && rhs.stack_.empty())
             || (stack_.size()  == rhs.stack_.size()
             &&  stack_.front() == rhs.stack_.front());
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto p_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator!=
-        (p_tree_iterator const& rhs) const -> bool
+    template<class T, class Compare>
+    auto brodal_tree_iterator<T, Compare>::operator!=
+        (brodal_tree_iterator const& rhs) const -> bool
     {
         return !(*this == rhs);
+    }
+
+// brodal_queue_iterator definition:
+
+    template<class T, class Compare, class Allocator, bool IsConst>
+    brodal_queue_iterator<T, Compare, Allocator, IsConst>::brodal_queue_iterator
+        (node_t* const t1, node_t* const t2) :
+        T1Iterator_     {t1},
+        T2Iterator_     {t2},
+        activeIterator_ {std::addressof(T1Iterator_)}
+    {
+    }
+
+    template<class T, class Compare, class Allocator, bool IsConst>
+    auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::operator++
+        () -> brodal_queue_iterator& 
+    {
+        ++(*activeIterator_);
+        if (tree_iterator_t {} == *activeIterator_)
+        {
+            activeIterator_ = std::addressof(T2Iterator_);
+        }
+
+        return *this;
+    }
+
+    template<class T, class Compare, class Allocator, bool IsConst>
+    auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::operator++
+        (int) -> brodal_queue_iterator
+    {
+        auto const ret = *this;
+        ++(*this);
+        return ret;
+    }
+
+    template<class T, class Compare, class Allocator, bool IsConst>
+    auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::operator*
+        () const -> reference
+    {
+        return **activeIterator_;
+    }
+
+    template<class T, class Compare, class Allocator, bool IsConst>
+    auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::operator->
+        () const -> pointer
+    {
+        return std::addressof(**activeIterator_);
+    }
+
+    template<class T, class Compare, class Allocator, bool IsConst>
+    auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::operator==
+        (brodal_queue_iterator const& rhs) const -> bool
+    {
+        return T1Iterator_ == rhs.T1Iterator_
+            && T2Iterator_ == rhs.T2Iterator_;
+    }
+
+    template<class T, class Compare, class Allocator, bool IsConst>
+    auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::operator!=
+        (brodal_queue_iterator const& rhs) const -> bool
+    {
+        return ! (*this == rhs);
     }
 
 // brodal_node_handle definition:
@@ -1620,14 +1611,16 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::copyViolations(const RootWrap & other, const node_map & mapping) -> void
     {
-        TreeIterator otherIt  {other.root};
-        TreeIterator otherEnd {nullptr};
-        TreeIterator thisIt   {this->root};
+        using tree_iterator_t = brodal_tree_iterator<T, Compare>;
+
+        tree_iterator_t otherIt  {other.root};
+        tree_iterator_t otherEnd {nullptr};
+        tree_iterator_t thisIt   {this->root};
 
         while (otherIt != otherEnd)
         {
-            node_t const* otherNode {*otherIt};
-            node_t const* thisNode  {*thisIt};
+            node_t const* otherNode {std::addressof(*otherIt)};
+            node_t const* thisNode  {std::addressof(*thisIt)};
             node_t*  setWCopy  {node_t::copySet(otherNode->setW, mapping)};
             node_t*  setVCopy  {node_t::copySet(otherNode->setV, mapping)};
 
@@ -2319,239 +2312,10 @@ namespace mix::ds
         RootWrap::swap(first, second);
     }
 
-    // BrodalQueue::IteratorNode implementation:
+    
 
-    template<class T, class Compare>
-    brodal_queue<T, Compare>::IteratorNode::IteratorNode(node_t const* node) :
-        node {node}
-    {
-    }
-
-    template<class T, class Compare>
-    brodal_queue<T, Compare>::IteratorNode::IteratorNode(node_t const* node, iter_node_uptr && fallback) :
-        node     {node}, 
-        fallback {std::move(fallback)}
-    {
-    }
-
-    template<class T, class Compare>
-    brodal_queue<T, Compare>::IteratorNode::IteratorNode(const IteratorNode & other) :
-        node         {other.node}, 
-        fallback     {other.fallback 
-                        ? std::make_unique<IteratorNode>(*other.fallback)
-                        : nullptr
-                     },
-        childVisited {other.childVisited}
-    {
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::IteratorNode::operator=(IteratorNode && rhs) -> IteratorNode &
-    {
-        this->node         = rhs.node;
-        this->childVisited = rhs.childVisited;
-        this->fallback     = std::move(rhs.fallback);
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::IteratorNode::operator==(const IteratorNode & rhs) const -> bool
-    {
-        return this->node == rhs.node
-           and this->childVisited == rhs.childVisited;
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::IteratorNode::operator!=(const IteratorNode & rhs) const -> bool
-    {
-        return not (*this == rhs);
-    }
-
-    // BrodalQueue::TreeIterator implementation:
-
-    template<class T, class Compare>
-    brodal_queue<T, Compare>::TreeIterator::TreeIterator(node_t const* node) :
-        current {nullptr == node 
-                      // This represents end iterator.
-                    ? std::make_unique<IteratorNode>(nullptr, nullptr) 
-                      // Fallback will be end iterator.
-                    : std::make_unique<IteratorNode> (
-                        node, 
-                        std::make_unique<IteratorNode>(nullptr, nullptr)
-                    )
-                }
-    {
-    }
-
-    template<class T, class Compare>
-    brodal_queue<T, Compare>::TreeIterator::TreeIterator(const TreeIterator & other) :
-        current {std::make_unique<IteratorNode>(*other.current)}
-    {
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::TreeIterator::operator==(const TreeIterator & rhs) const -> bool
-    {
-        return *this->current == *rhs.current;
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::TreeIterator::operator!=(const TreeIterator & rhs) const -> bool
-    {
-        return not (*this == rhs);
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::TreeIterator::operator*() const -> node_t*
-    {
-        return this->current->node;
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::TreeIterator::operator->() const -> node_t*
-    {
-        return this->current->node;
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::TreeIterator::operator++() -> TreeIterator &
-    {
-        // If this is end iterator there is nowhere to advance.
-        if (not this->current->node)
-        {
-            return *this;
-        }
-        
-        // Move down if possible.
-        if (not this->current->childVisited 
-            and this->current->node->child)
-        {
-            this->current->childVisited = true;
-            this->current = std::make_unique<IteratorNode> (
-                this->current->node->child,
-                std::move(this->current)
-            );
-
-            return *this;
-        }
-
-        // Move right if possible.
-        if (this->current->node->right)
-        {
-            this->current = std::make_unique<IteratorNode> (
-                this->current->node->right,
-                std::move(this->current->fallback)
-            );
-
-            return *this;
-        }
-
-        // Fallback up if possible.
-        if (this->current->fallback)
-        {
-            this->current = std::move(this->current->fallback);
-            return ++(*this);
-        }
-
-        return *this;
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::TreeIterator::swap(TreeIterator & other) noexcept -> void
-    {
-        this->current.swap(other.current);
-    }
-
-    // BrodalQueue::BrodalQueueIterator implementation:
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::BrodalQueueIterator(node_t const* t1, node_t const* t2) :
-        t1Iterator {t1},
-        t2Iterator {t2}
-    {
-    }
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    auto brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::operator=(BrodalQueueIterator other) -> BrodalQueueIterator &
-    {
-        swap(*this, other);
-        return *this;
-    }
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    auto brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::operator==(const BrodalQueueIterator & rhs) const -> bool
-    {
-        return this->t1Iterator == rhs.t1Iterator
-           and this->t2Iterator == rhs.t2Iterator;
-    }
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    auto brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::operator!=(const BrodalQueueIterator & rhs) const -> bool
-    {
-        return not (*this == rhs);
-    }
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    auto brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::operator*() const -> Reference
-    {
-        return *(*this->activeTree())->entry;
-    }
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    auto brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::operator->() const -> Pointer
-    {
-        return std::addressof(*(*this->activeTree())->entry);
-    }
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    auto brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::operator++() -> BrodalQueueIterator &
-    {
-        ++(this->activeTree());
-        return *this;
-    }
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    auto brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::operator++(int) -> BrodalQueueIterator
-    {
-        BrodalQueueIterator ret {*this};
-        ++(*this);
-        return ret;
-    }
-
-    template<class T, class Compare, class Value, class Pointer, class Reference>
-    auto swap(
-        typename brodal_queue<T, Compare>::template BrodalQueueIterator<Value, Pointer, Reference> & first, 
-        typename brodal_queue<T, Compare>::template BrodalQueueIterator<Value, Pointer, Reference> & second
-    ) noexcept -> void
-    {
-        first.t1Iterator.swap(second.t1Iterator);
-        first.t2Iterator.swap(second.t2Iterator);
-    }
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    auto brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::activeTree() -> TreeIterator &
-    {
-        return nullptr != *this->t1Iterator 
-                ? this->t1Iterator
-                : this->t2Iterator; 
-    }
-
-    template<class T, class Compare>
-    template<class Value, class Pointer, class Reference>
-    auto brodal_queue<T, Compare>::BrodalQueueIterator<Value, Pointer, Reference>::activeTree() const -> const TreeIterator &
-    {
-        return nullptr != *this->t1Iterator 
-               ? this->t1Iterator
-               : this->t2Iterator; 
-    }
+    
+    
 
     // BrodalQueue implementation:
 
@@ -2828,7 +2592,7 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::end() -> iterator
     {
-        return iterator {nullptr, nullptr};
+        return iterator {};
     }
 
     template<class T, class Compare>
@@ -2840,19 +2604,19 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::end() const -> const_iterator
     {
-        return const_iterator {nullptr, nullptr};
+        return const_iterator {};
     }
 
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::cbegin() const -> const_iterator
     {
-        return const_cast<const brodal_queue *>(this)->begin();
+        return const_cast<brodal_queue const*>(this)->begin();
     }
 
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::cend() const -> const_iterator
     {
-        return const_cast<const brodal_queue *>(this)->end();
+        return const_cast<brodal_queue const*>(this)->end();
     }
 
     template<class T, class Compare>
@@ -3126,16 +2890,19 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::nodeMappingOfTree(cwrap_ref original, cwrap_ref copy, node_map & map) -> void
     {
-        TreeIterator itOriginal  {original.root};
-        TreeIterator originalEnd {nullptr};
-        TreeIterator itCopy      {copy.root};
+        using tree_iterator_t = brodal_tree_iterator<T, Compare>;
+        
+        tree_iterator_t itOriginal  {original.root};
+        tree_iterator_t originalEnd {nullptr};
+        tree_iterator_t itCopy      {copy.root};
 
         // Put violating nodes into the map.
         while (itOriginal != originalEnd)
         {
             if (itOriginal->isInSet())
             {
-                map[*itOriginal] = *itCopy;
+                // TODO emplace
+                map[std::addressof(*itOriginal)] = std::addressof(*itCopy);
             }
 
             ++itOriginal;
