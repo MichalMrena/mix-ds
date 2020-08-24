@@ -61,26 +61,26 @@ auto test_brodal_queue()
     // test_guide();
     // test_queue();
     real_test_brodal_queue();
-}
+    // queue_test_other<pairing_heap>(10'000, 2153464);
+    // queue_test_other<brodal_queue>(10'000, 2153464);
+    // queue_test_random_all<brodal_queue>(100'000, 543132);
 
-auto test_dijkstra()
-{
-    using namespace mix::ds;
-    auto vs = load_road_graph("/mnt/c/Users/mrena/Downloads/USA-road-d.NY.gr");
-    // find_point_to_all<pairing_heap>(vs, 0);
-    // find_point_to_all<boost_pairing_heap>(vs, 0);
-    find_point_to_all<brodal_queue>(vs, 0);
+    // auto q1 = brodal_queue<int>();
+    // q1.insert(20);
+    // q1.insert(10);
+    // q1.insert(30);
 
-    auto totalDist = 0.0;
-    for (auto const& v : vs.vertices)
-    {
-        if (std::numeric_limits<dist_t>::max() != v.distAprox)
-        {
-            totalDist += v.distAprox;
-        }
-    }
+    // auto it = q1.begin();
+    // ++it;
+    // ++it;
+    // ++it;
 
-    std::cout << std::fixed << totalDist << '\n';
+    // auto iseq = std::equal(q1.begin(), q1.end(), q1.begin());
+
+    // for (auto i : q1)
+    // {
+    //     std::cout << i << '\n';
+    // }
 }
 
 auto example_priority_queue()
@@ -112,13 +112,18 @@ auto example_priority_queue()
 
 int main()
 {
+    using namespace mix::ds;
+
     auto watch = mix::utils::stopwatch();
     
     // test_pairing_heap();
     // test_baseline_map();
     // example_priority_queue();
     test_brodal_queue();
-    // test_dijkstra();
+    
+    // test_dijkstra<pairing_heap>(1000, 144);
+    // test_dijkstra<boost_pairing_heap>(1000, 144);
+    // test_dijkstra<brodal_queue>(1000, 144);
 
     auto const elapsed = watch.elapsed_time().count();
     std::cout << "Time taken " << elapsed << " ms" << std::endl;

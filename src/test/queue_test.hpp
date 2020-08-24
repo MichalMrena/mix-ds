@@ -3,6 +3,7 @@
 
 #include "test_commons.hpp"
 #include "../utils/random_wrap.hpp"
+#include "../compare/dijkstra.hpp"
 
 #include <vector>
 #include <iterator>
@@ -183,17 +184,13 @@ namespace mix::ds
     template<template<class, class...> class TestedQueue, class... Options>
     auto queue_test_other(std::size_t const n, unsigned long const seed)
     {
-        using queue_t    = TestedQueue<test_t, std::less<test_t>, Options...>;
-        auto queueFirst  = queue_t();
-        auto queueSecond = queue_t();
-        auto rngFirst    = make_rng<test_t>(0u, n, seed);
-        auto rngSecond   = make_rng<test_t>(0u, n, seed);
-
-        queue_insert_n(1 + n, queueFirst, rngFirst);
-        queue_insert_n(1 + n, queueSecond, rngSecond);
-
+        using queue_t   = TestedQueue<test_t, std::less<test_t>, Options...>;
+        auto queueFirst = queue_t();
+        auto rngFirst   = make_rng<test_t>(0u, n, seed);
+        auto handles    = queue_insert_n(1 + n, queueFirst, rngFirst);
         queueFirst.delete_min();
-        queueSecond.delete_min();
+
+        auto queueSecond = queue_t(queueFirst);
 
         ASSERT(queueFirst == queueSecond, "Test equal");
         ASSERT(queueFirst.size() == real_size(queueFirst), "Test size");
@@ -285,6 +282,30 @@ namespace mix::ds
         }
 
         ASSERT(queue_test_delete(queue), "Test all [internal test delete]");
+    }
+
+    template<template<class, class, class...> class Queue>
+    auto test_dijkstra(std::size_t const n, unsigned long const seed)
+    {
+        using namespace mix::ds;
+        auto vs = load_road_graph("/mnt/c/Users/mrena/Downloads/USA-road-d.NY.gr");
+
+        auto rngSrc = make_rng<std::size_t>(0ul, vs.vertices.size(), seed);
+
+        auto totalDist = 0.0;
+        for (auto i = 0ul; i < n; ++i)
+        {
+            find_point_to_all<Queue>(vs, rngSrc.next_int());
+            for (auto const& v : vs.vertices)
+            {
+                if (dijkstra_max_dist() != v.distAprox)
+                {
+                    totalDist += v.distAprox;
+                }
+            }
+        }
+
+        std::cout << std::fixed << totalDist << '\n';
     }
 
     template<template<class, class...> class TestedQueue, class... Options>

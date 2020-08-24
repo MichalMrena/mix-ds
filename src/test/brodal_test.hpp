@@ -215,13 +215,13 @@ namespace mix::ds
 
     inline auto real_test_brodal_queue()
     {
-        auto constexpr seed = 354641;
-        // auto constexpr n    = 1'000'000;
-        auto constexpr n    = 10'000;
+        auto constexpr seed = 86410;
+        auto constexpr n    = 1'000'000;
+        // auto constexpr n    = 10'000;
 
         // queue_test_insert<brodal_queue>(n, seed);
         // queue_test_delete<brodal_queue>(n, seed);
-        // queue_test_decrease<brodal_queue>(n, seed);
+        queue_test_decrease<brodal_queue>(n, seed);
         // queue_test_other<brodal_queue>(n, seed);
     }
 }

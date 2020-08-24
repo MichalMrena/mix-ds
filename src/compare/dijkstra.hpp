@@ -142,6 +142,12 @@ namespace mix::ds
         return graph {vertices};
     }
 
+    inline auto constexpr dijkstra_max_dist
+        () -> dist_t
+    {
+        return std::numeric_limits<dist_t>::max() / 2;
+    }
+
     template<template<class, class, class...> class PrioQueue, class... Options>
     auto find_point_to_all
         (graph& vs, id_t const from)
@@ -153,12 +159,13 @@ namespace mix::ds
 
         for (auto& v : vs.vertices)
         {
-            v.distAprox = std::numeric_limits<dist_t>::max();
+            v.distAprox = dijkstra_max_dist();
             v.prev      = nullptr;
             v.isInQueue = false;
         }
         vs.vertices[from].distAprox = 0;
         vs.vertices[from].handle    = queue.insert(&vs.vertices[from]);
+        vs.vertices[from].isInQueue = true;
 
         while (!queue.empty())
         {
