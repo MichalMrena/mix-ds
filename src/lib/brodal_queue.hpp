@@ -9,6 +9,10 @@
 #include <type_traits>
 #include <functional>
 
+// TODO tmp
+#include <iterator>
+#include <iostream>
+
 namespace mix::ds
 {
     /**
@@ -203,6 +207,9 @@ namespace mix::ds
         auto operator!= (brodal_tree_iterator const&) const -> bool;
 
     public:
+        auto current () const -> node_t*;
+
+    public:
         std::stack<node_t*> stack_;
     };
 
@@ -232,7 +239,7 @@ namespace mix::ds
         auto operator== (brodal_queue_iterator const&) const -> bool;
         auto operator!= (brodal_queue_iterator const&) const -> bool;
 
-    private:
+    public:
         auto current () const -> node_t*;
         auto active  ()       -> tree_iterator_t&; 
         auto active  () const -> tree_iterator_t const&; 
@@ -259,7 +266,7 @@ namespace mix::ds
         auto operator-> ()       -> T*;
         auto operator-> () const -> T const*;
 
-    private:
+    public:
         using entry_t = brodal_entry<T, Compare>;
         template<class, class>
         friend class brodal_queue;
@@ -498,7 +505,7 @@ namespace mix::ds
         using size_type       = std::size_t;
         using handle_t        = brodal_entry_handle<T, Compare, int>;
 
-    private: // BrodalQueue members:
+    public: // BrodalQueue members:
         std::size_t queueSize {0};
 
         T1RootWrap T1 {this};
@@ -518,10 +525,15 @@ namespace mix::ds
 
         auto insert       (value_type const& value) -> handle_t;
         auto insert       (value_type&& value)      -> handle_t;
-        auto decrease_key (handle_t holder)         -> void;
         auto delete_min   ()                        -> value_type;
         auto find_min     ()                        -> reference;
         auto find_min     () const                  -> const_reference;
+        auto decrease_key (handle_t const handle)   -> void;
+        auto decrease_key (iterator pos)            -> void;
+        auto decrease_key (const_iterator pos)      -> void;
+        auto erase        (handle_t const handle)   -> void;
+        auto erase        (iterator pos)            -> void;
+        auto erase        (const_iterator pos)      -> void;
         auto size         () const                  -> size_type;
         auto max_size     () const                  -> size_type;
         auto empty        () const                  -> bool;
@@ -550,8 +562,9 @@ namespace mix::ds
         auto insert_special_impl (node_t* const node) -> handle_t;
 
         template<class Cmp = Compare>
-        auto dec_key_impl  (node_t* const node) -> void;
+        auto dec_key_impl (node_t* const node) -> void;
 
+        auto erase_impl (node_t* const node) -> void;
 
         auto deleteMinSpecial () -> value_type;
 
@@ -895,6 +908,8 @@ namespace mix::ds
     brodal_node<T, Compare>::~brodal_node()
     {
         brodal_node::foldRight(this->child, [](brodal_node * n) { delete n; });
+        // TODO tmp
+        rank = 200;
     }
 
     template<class T, class Compare>
@@ -1408,6 +1423,13 @@ namespace mix::ds
         return !(*this == rhs);
     }
 
+    template<class T, class Compare>
+    auto brodal_tree_iterator<T, Compare>::current
+        () const -> node_t*
+    {
+        return this->operator->();
+    }
+
 // brodal_queue_iterator definition:
 
     template<class T, class Compare, class Allocator, bool IsConst>
@@ -1478,6 +1500,13 @@ namespace mix::ds
     }
 
     template<class T, class Compare, class Allocator, bool IsConst>
+    auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::current
+        () const -> node_t* 
+    {
+        return this->active().current();
+    }
+
+    template<class T, class Compare, class Allocator, bool IsConst>
     auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::active
         () -> tree_iterator_t&
     {
@@ -1531,7 +1560,7 @@ namespace mix::ds
 // always_true_cmp definition:
 
     template<class T>
-    auto always_true_cmp<T>::operator()
+    auto brodal_impl::always_true_cmp::operator()
         (T const&, T const&) -> bool
     {
         return true;
@@ -2450,16 +2479,53 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::operator=(brodal_queue rhs) -> brodal_queue &
+    auto brodal_queue<T, Compare>::operator=
+        (brodal_queue rhs) -> brodal_queue&
     {
         swap(*this, rhs);
         return *this;
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::decrease_key(handle_t handle) -> void
+    auto brodal_queue<T, Compare>::decrease_key
+        (handle_t const handle) -> void
     {
         this->dec_key_impl(handle.entry_->node_);
+    }
+
+    template<class T, class Compare>
+    auto brodal_queue<T, Compare>::decrease_key
+        (iterator pos) -> void
+    {
+        this->dec_key_impl(pos.current());
+    }
+
+    template<class T, class Compare>
+    auto brodal_queue<T, Compare>::decrease_key
+        (const_iterator pos) -> void
+    {
+        this->dec_key_impl(pos.current());
+    }
+
+    template<class T, class Compare>
+    auto brodal_queue<T, Compare>::erase
+        (handle_t const handle) -> void
+    {
+        this->erase_impl(handle.entry_->node_);
+    }
+
+    template<class T, class Compare>
+    auto brodal_queue<T, Compare>::erase
+        (iterator pos) -> void
+    {
+        this->erase_impl(pos.current());
+    }
+
+    template<class T, class Compare>
+    auto brodal_queue<T, Compare>::erase
+        (const_iterator pos) -> void
+    {
+        this->erase_impl(pos.current());
     }
 
     template<class T, class Compare>
@@ -2474,9 +2540,10 @@ namespace mix::ds
 
         T ret {this->find_min()};
         node_t* const oldRoot {this->T1.root};
-        node_uptr newRoot {this->findNewRoot()};
+        node_uptr newRoot {this->findNewRoot()}; 
         if (newRoot->isInSet())
         {
+            // TODO if it is violating we need to remove it from set and auxW
             this->T1.removeViolation(newRoot.get());
         }
         
@@ -2528,6 +2595,8 @@ namespace mix::ds
             return this->insert_special_impl(node);
         }
         
+        auto const entry = node->entry.get();
+
         this->queueSize++;
 
         if (*node < *this->T1.root)
@@ -2539,7 +2608,7 @@ namespace mix::ds
 
         this->moveToT1();
 
-        return handle_t(node->entry.get());
+        return handle_t(entry);
     }
 
     template<class T, class Compare>
@@ -2548,10 +2617,12 @@ namespace mix::ds
     {
         this->queueSize++;
 
+        auto const entry = node->entry.get();
+
         if (1 == this->size())
         {
             this->T1.root = node;
-            return handle_t(node->entry.get());
+            return handle_t(entry);
         }
         else if (*node < *this->T1.root)
         {
@@ -2570,7 +2641,7 @@ namespace mix::ds
             this->T1.increase_domain();
         }
 
-        return handle_t(node->entry.get());
+        return handle_t(entry);
     }
 
     template<class T, class Compare>
@@ -2581,7 +2652,7 @@ namespace mix::ds
         // TODO wtf?
         // this->moveToT1(); 
 
-        if (Cmp {} (*node, *this->T1.root))
+        if (Cmp {} (**node, **this->T1.root))
         {
             node_t::swapEntries(node, this->T1.root);
         }
@@ -2591,6 +2662,23 @@ namespace mix::ds
             this->T1.addViolation(node);
             this->T1.violationCheck(node->rank);
         }
+    }
+
+    template<class T, class Compare>
+    auto brodal_queue<T, Compare>::erase_impl
+        (node_t* const node) -> void
+    {
+        node_t::swapEntries(node, this->T1.root);
+
+        if (node->parent && T1.root != node->parent && !node->isInSet())
+        {
+            // At this point node can be violating even if it is son of t1.
+            // If that is the case we can't add it to violation set.
+            // It would break delete_min since sons of t1 cannot be violating.
+            this->T1.addViolation(node);
+        }
+
+        this->delete_min();
     }
 
 

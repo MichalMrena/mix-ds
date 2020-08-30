@@ -5,6 +5,7 @@
 #include "queue_test.hpp"
 #include "../lib/brodal_queue.hpp"
 #include "../utils/string_utils.hpp"
+#include "../compare/boost_pairing_heap.hpp"
 
 #include <vector>
 #include <functional>
@@ -200,29 +201,19 @@ namespace mix::ds
         // guide_tester({0, 1, 1, 1, 0}).do_inc({1}).expect({0, 1, 2, 0, 0});
     }
 
-    inline auto test_queue()
-    {
-        auto queue = brodal_queue<int>();
-
-        queue.insert(20);
-        queue.insert(10);
-        queue.insert(30);
-
-        std::cout << queue.delete_min() << std::endl;
-        std::cout << queue.delete_min() << std::endl;
-        std::cout << queue.delete_min() << std::endl;
-    }
-
     inline auto real_test_brodal_queue()
     {
-        auto constexpr seed = 86410;
-        auto constexpr n    = 1'000'000;
-        // auto constexpr n    = 10'000;
+        auto constexpr seed = 256843512.1;
+        auto constexpr n    = 3'000'000;
+        // auto constexpr n    = 100'000;
 
         // queue_test_insert<brodal_queue>(n, seed);
         // queue_test_delete<brodal_queue>(n, seed);
-        queue_test_decrease<brodal_queue>(n, seed);
+        // queue_test_decrease<brodal_queue>(n, seed);
         // queue_test_other<brodal_queue>(n, seed);
+        queue_test_random_all<brodal_queue>(n, seed);
+        // queue_test_random_all<pairing_heap>(n, seed);
+        // queue_test_random_all<boost_pairing_heap>(n, seed);
     }
 }
 

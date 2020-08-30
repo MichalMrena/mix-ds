@@ -32,12 +32,22 @@ namespace mix::ds
         return lhs.data > rhs.data;
     }
 
+    auto operator== (test_data const& lhs, test_data const& rhs)
+    {
+        return lhs.data == rhs.data;
+    }
+
+    auto operator!= (test_data const& lhs, test_data const& rhs)
+    {
+        return ! (lhs == rhs);
+    }
+
     template<class Handles>
     auto erase_handle(Handles& handles, std::size_t const index)
     {
-        std::swap(handles[index], handles.back());
+        std::swap(handles.at(index), handles.back());
+        (*handles.at(index)).index = index;
         handles.pop_back();
-        (*handles[index]).index = index;
     }
 
     template<class Queue>
@@ -220,52 +230,72 @@ namespace mix::ds
         auto handles  = std::vector<typename queue_t::handle_t>();
         handles.reserve(2 * n);
 
-        auto prevOdd = test_t(0);
-
         auto const is_odd = [](auto const n)
         {
             return n & 1;
         };
 
-        auto const insert = [&]()
+        auto const is_even = [&](auto const n)
         {
-            handles.emplace_back(queue.insert(test_data {std::max(2u, rngData.next_int() & (~1u)), handles.size()}));
+            return ! is_odd(n);
         };
 
+        auto const to_even = [](auto const n)
+        {
+            return n & (~1u);
+        };
+
+        auto const to_odd = [](auto const n)
+        {
+            return n | 1;
+        };
+
+        auto const insert = [&]()
+        {
+            auto const data = to_odd(rngData.next_int());
+            handles.emplace_back(queue.insert(test_data {data, handles.size()}));
+        };
+
+        auto prevPrimordial = test_t(0);
         auto const delete_min = [&]()
         {
-            auto const poppedData  = queue.find_min().data;
+            auto const poppedData = queue.find_min().data;
             erase_handle(handles, queue.find_min().index);
             queue.delete_min();
 
-            if (is_odd(poppedData))
+            // Order must hold for primordial numbers.
+            if (is_even(poppedData))
             {
-                if (poppedData < prevOdd)
+                if (poppedData < prevPrimordial)
                 {
-                    std::cerr << "!!! Test all failed. Invalid order of primodial keys." << std::endl;
+                    std::cout << "!!! Test all failed. Invalid order of primordial keys: " 
+                              << poppedData << " < " << prevPrimordial << std::endl;
                 }
-                prevOdd = poppedData;
+                prevPrimordial = poppedData;
             }
         };
 
         auto const decrease_key = [&]()
         {
-            auto handle = handles[rngIndex.next_int() % handles.size()];
-            (*handle).data = std::max(2u, (rngNew.next_int() % (*handle).data) & (~1u));
+            auto handle        = handles[rngIndex.next_int() % handles.size()];
+            auto const newData = to_odd(rngNew.next_int() % (*handle).data);
+            (*handle).data     = newData;
             queue.decrease_key(handle);
         };
 
         auto const erase = [&]()
         {
             auto const index  = rngIndex.next_int() % handles.size();
-            auto const handle = handles[index];
+            auto const handle = handles.at(index);
             erase_handle(handles, index);
             queue.erase(handle);
         };
 
         for (auto i = 0u; i < n; ++i)
         {
-            handles.emplace_back(queue.insert(test_data {std::max(2u, rngData.next_int() & (~1u)), handles.size()}));
+            // Only primordial numbers are even.
+            auto const data = to_even(rngData.next_int());
+            handles.emplace_back(queue.insert(test_data {data, handles.size()}));
         }
 
         for (auto i = 0u; i < n; ++i)
@@ -281,11 +311,14 @@ namespace mix::ds
             }
         }
 
+        // TODO test copy
+        // TODO map -> get -> optional
+
         ASSERT(queue_test_delete(queue), "Test all [internal test delete]");
     }
 
     template<template<class, class, class...> class Queue>
-    auto test_dijkstra(std::size_t const n, unsigned long const seed)
+    auto test_dijkstra_to_all(std::size_t const n, unsigned long const seed)
     {
         using namespace mix::ds;
         auto vs = load_road_graph("/mnt/c/Users/mrena/Downloads/USA-road-d.NY.gr");
@@ -302,6 +335,29 @@ namespace mix::ds
                 {
                     totalDist += v.distAprox;
                 }
+            }
+        }
+
+        std::cout << std::fixed << totalDist << '\n';
+    }
+
+    template<template<class, class, class...> class Queue>
+    auto test_dijkstra_to_point(std::size_t const n, unsigned long const seed)
+    {
+        using namespace mix::ds;
+        auto vs = load_road_graph("/mnt/c/Users/mrena/Downloads/USA-road-d.NY.gr");
+
+        auto rngSeed = make_seeder(seed);
+        auto rngSrc  = make_rng<std::size_t>(0ul, vs.vertices.size(), rngSeed.next_int());
+        auto rngDst  = make_rng<std::size_t>(0ul, vs.vertices.size(), rngSeed.next_int());
+
+        auto totalDist = 0.0;
+        for (auto i = 0ul; i < n; ++i)
+        {
+            auto const path = find_point_to_point<Queue>(vs, rngSrc.next_int(), rngDst.next_int());
+            if (dijkstra_max_dist() != path.cost)
+            {
+                totalDist += path.cost;
             }
         }
 

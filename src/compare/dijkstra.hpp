@@ -31,12 +31,12 @@ namespace mix::ds
         bool     isInQueue;
     };
 
-    struct graph
+    struct graph_t
     {
         std::vector<vertex> vertices;
     };
 
-    struct path
+    struct path_t
     {
         id_t   from;
         id_t   to;
@@ -115,11 +115,11 @@ namespace mix::ds
         (std::string line)
     {
         auto const words = to_words(std::move(line));
-        return path {std::stoull(words[1]) - 1, std::stoull(words[2]) - 1, std::stoll(words[3])};
+        return path_t {std::stoull(words[1]) - 1, std::stoull(words[2]) - 1, std::stoll(words[3])};
     }
 
     inline auto load_road_graph
-        (std::string const& filePath) -> graph
+        (std::string const& filePath) -> graph_t
     {
         auto fstr = std::fstream(filePath);
 
@@ -139,7 +139,7 @@ namespace mix::ds
             line = parse_line(read_line(fstr));
         }
 
-        return graph {vertices};
+        return graph_t {vertices};
     }
 
     inline auto constexpr dijkstra_max_dist
@@ -150,7 +150,7 @@ namespace mix::ds
 
     template<template<class, class, class...> class PrioQueue, class... Options>
     auto find_point_to_all
-        (graph& vs, id_t const from)
+        (graph_t& vs, id_t const from)
     {
         using queue_t  = PrioQueue<vertex*, vertex_ptr_compare>;
         using handle_t = typename queue_t::handle_t;
@@ -192,6 +192,59 @@ namespace mix::ds
                 }
             }
         }
+    }
+
+    template<template<class, class, class...> class PrioQueue, class... Options>
+    auto find_point_to_point
+        (graph_t& vs, id_t const from, id_t const to)
+    {
+        using queue_t  = PrioQueue<vertex*, vertex_ptr_compare>;
+        using handle_t = typename queue_t::handle_t;
+
+        auto queue = queue_t();
+
+        for (auto& v : vs.vertices)
+        {
+            v.distAprox = dijkstra_max_dist();
+            v.prev      = nullptr;
+            v.isInQueue = false;
+        }
+        vs.vertices[from].distAprox = 0;
+        vs.vertices[from].handle    = queue.insert(&vs.vertices[from]);
+        vs.vertices[from].isInQueue = true;
+
+        while (!queue.empty())
+        {
+            auto const current = queue.find_min();
+            queue.delete_min();
+
+            if (current == &vs.vertices[to])
+            {
+                return path_t {from, to, current->distAprox};
+            }
+
+            for (auto const edge : current->forward)
+            {
+                auto const target = &vs.vertices[edge.target];
+                if (current->distAprox + edge.cost < target->distAprox)
+                {
+                    target->distAprox = current->distAprox + edge.cost;
+                    target->prev      = current;
+
+                    if (target->isInQueue)
+                    {
+                        queue.decrease_key(std::any_cast<handle_t>(target->handle));
+                    }
+                    else
+                    {
+                        target->handle    = queue.insert(target);
+                        target->isInQueue = true;
+                    }
+                }
+            }
+        }
+
+        return path_t {0, 0, dijkstra_max_dist()};
     }
 }
 
