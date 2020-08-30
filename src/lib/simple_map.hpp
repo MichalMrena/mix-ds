@@ -9,10 +9,12 @@
 #include <memory>
 #include <type_traits>
 #include <tuple>
+#include <functional>
+#include <optional>
 
 namespace mix::ds
 {
-    namespace aux_impl
+    namespace smap_impl
     {
         template<class T, class = std::void_t<>>
         struct is_transparent : public std::false_type { };
@@ -31,14 +33,16 @@ namespace mix::ds
     class simple_map
     {
     public:
-        using container_type  = Container;
-        using value_type      = std::pair<Key const, T>;
-        using key_type        = Key;
-        using reference       = T&;
-        using const_reference = T const&;
-        using iterator        = typename container_type::iterator;
-        using const_iterator  = typename container_type::const_iterator;
-        using size_type       = std::size_t;
+        using container_type           = Container;
+        using value_type               = std::pair<Key const, T>;
+        using key_type                 = Key;
+        using reference                = T&;
+        using const_reference          = T const&;
+        using iterator                 = typename container_type::iterator;
+        using const_iterator           = typename container_type::const_iterator;
+        using size_type                = std::size_t;
+        using optional_reference       = std::optional<std::reference_wrapper<T>>;
+        using optional_const_reference = std::optional<std::reference_wrapper<T const>>;
 
         template<class Alloc>
         using uses_allocator  = typename std::enable_if_t<std::uses_allocator_v<container_type, Alloc>>;
@@ -61,6 +65,8 @@ namespace mix::ds
         auto at         (key_type const& k) const                 -> const_reference;
         auto find       (key_type const& k)                       -> iterator;
         auto find       (key_type const& k) const                 -> const_iterator;
+        auto get        (key_type const& k)                       -> optional_reference;
+        auto get        (key_type const& k) const                 -> optional_const_reference;
         auto operator[] (key_type const& k)                       -> reference;
         auto operator[] (key_type&& k)                            -> reference;
         auto insert     (value_type const& v)                     -> std::pair<iterator, bool>;
@@ -71,16 +77,32 @@ namespace mix::ds
         auto erase      (iterator pos)                            -> iterator;
         auto erase      (const_iterator pos)                      -> iterator;
         
-        template<class K>       auto find             (K const& k )                       -> std::enable_if_t<aux_impl::is_transparent_v<K>, iterator>;
-        template<class K>       auto find             (K const& k ) const                 -> std::enable_if_t<aux_impl::is_transparent_v<K>, const_iterator>;
-        template<class K>       auto contains         (K const& k ) const                 -> std::enable_if_t<aux_impl::is_transparent_v<K>, bool>;
-        template<class... Args> auto emplace          (Args&&... args)                    -> std::pair<iterator, bool>;
-        template<class... Args> auto try_emplace      (key_type const& k, Args&&... args) -> std::pair<iterator, bool>;
-        template<class... Args> auto try_emplace      (key_type&& k, Args&&... args)      -> std::pair<iterator, bool>;
-        template<class P>       auto insert           (P&& v)                             -> std::enable_if_t<std::is_constructible_v<value_type, P&&>, std::pair<iterator,bool>>;
-        template<class InputIt> auto insert           (InputIt first, InputIt last)       -> void;
-        template<class M>       auto insert_or_assign (key_type const& k, M&& obj)        -> std::pair<iterator, bool>;
-        template<class M>       auto insert_or_assign (key_type&& k, M&& obj)             -> std::pair<iterator, bool>;
+        template<class K>
+        auto find (K const& k ) -> std::enable_if_t<smap_impl::is_transparent_v<K>, iterator>;
+        
+        template<class K> 
+        auto find (K const& k ) const -> std::enable_if_t<smap_impl::is_transparent_v<K>, const_iterator>;
+        
+        template<class K>
+        auto contains (K const& k ) const -> std::enable_if_t<smap_impl::is_transparent_v<K>, bool>;
+        
+        template<class... Args>
+        auto emplace (Args&&... args) -> std::pair<iterator, bool>;
+        
+        template<class... Args>
+        auto try_emplace (key_type const& k, Args&&... args) -> std::pair<iterator, bool>;
+        
+        template<class... Args>
+        auto try_emplace (key_type&& k, Args&&... args) -> std::pair<iterator, bool>;
+        
+        template<class P> 
+        auto insert (P&& v) -> std::enable_if_t<std::is_constructible_v<value_type, P&&>, std::pair<iterator,bool>>;
+        
+        template<class InputIt>
+        auto insert (InputIt first, InputIt last) -> void;
+        
+        template<class M> auto insert_or_assign (key_type const& k, M&& obj) -> std::pair<iterator, bool>;
+        template<class M> auto insert_or_assign (key_type&& k, M&& obj)      -> std::pair<iterator, bool>;
 
         auto operator= (simple_map rhs) -> simple_map&;
         auto clear     ()               -> void;
@@ -207,14 +229,14 @@ namespace mix::ds
 
     template<class Key, class T, class KeyEqual, class Container>
     auto simple_map<Key, T, KeyEqual, Container>::at
-        (Key const& k) -> reference
+        (key_type const& k) -> reference
     {
         return const_cast<reference>(const_cast<simple_map const*>(this)->at(k));
     }
 
     template<class Key, class T, class KeyEqual, class Container>
     auto simple_map<Key, T, KeyEqual, Container>::at
-        (Key const& k) const -> const_reference
+        (key_type const& k) const -> const_reference
     {
         auto const it = this->find(k);
 
@@ -228,21 +250,49 @@ namespace mix::ds
 
     template<class Key, class T, class KeyEqual, class Container>
     auto simple_map<Key, T, KeyEqual, Container>::find
-        (Key const& k) -> iterator
+        (key_type const& k) -> iterator
     {
         return this->to_iterator(const_cast<simple_map const*>(this)->find(k));
     }
 
     template<class Key, class T, class KeyEqual, class Container>
     auto simple_map<Key, T, KeyEqual, Container>::find
-        (Key const& k) const -> const_iterator
+        (key_type const& k) const -> const_iterator
     {
         return this->find_impl(k);
     }
 
     template<class Key, class T, class KeyEqual, class Container>
+    auto simple_map<Key, T, KeyEqual, Container>::get
+        (key_type const& k) -> optional_reference
+    {
+        auto const it = this->find(k);
+
+        if (this->end() == it)
+        {
+            return std::nullopt;
+        }
+
+        return std::make_optional(std::ref(*it));
+    }
+
+    template<class Key, class T, class KeyEqual, class Container>
+    auto simple_map<Key, T, KeyEqual, Container>::get
+        (key_type const& k) const -> optional_const_reference
+    {
+        auto const it = this->find(k);
+
+        if (this->end() == it)
+        {
+            return std::nullopt;
+        }
+
+        return std::make_optional(std::cref(*it));
+    }
+
+    template<class Key, class T, class KeyEqual, class Container>
     auto simple_map<Key, T, KeyEqual, Container>::operator[]
-        (Key const& k) -> reference
+        (key_type const& k) -> reference
     {
         return this->bracket_op_impl(k);
     }
@@ -426,7 +476,7 @@ namespace mix::ds
 
     template<class Key, class T, class KeyEqual, class Container>
     auto simple_map<Key, T, KeyEqual, Container>::contains
-        (Key const& k) const -> bool
+        (key_type const& k) const -> bool
     {
         return this->end() == this->find(k);
     }

@@ -41,11 +41,11 @@ auto test_pairing_heap()
     queue_test_random_all <boost_pairing_heap> (n, seed);
 }
 
-auto test_baseline_map()
+auto test_simple_map()
 {
     using namespace mix::ds;
     auto constexpr seed = 935135; 
-    auto constexpr n    = 100'000;
+    auto constexpr n    = 1'000;
 
     map_test_find_erase<simple_map>(n, seed);
     map_test_insert<simple_map>(n, seed);
@@ -83,7 +83,7 @@ int main()
     auto watch = mix::utils::stopwatch();
     
     // test_pairing_heap();
-    test_baseline_map();
+    test_simple_map();
     // example_priority_queue();
 
     auto const elapsed = watch.elapsed_time().count();
