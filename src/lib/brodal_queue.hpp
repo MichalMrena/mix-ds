@@ -8,6 +8,7 @@
 #include <stack>
 #include <type_traits>
 #include <functional>
+#include <algorithm>
 
 // TODO tmp
 #include <iterator>
@@ -114,71 +115,79 @@ namespace mix::ds
         using entry_t    = brodal_entry<T, Compare>;
         using entry_uptr = std::unique_ptr<entry_t>;
         using node_t     = brodal_node;
+        using delinked_t = delinked_nodes<T, Compare>;
 
     public:
         template<class... Args>
         brodal_node  (std::piecewise_construct_t, Args&&... args);
         brodal_node  (brodal_node const& other);
         ~brodal_node ();
-
-        auto operator*       ()       -> T&;
-        auto operator*       () const -> T const&;
-        auto operator<       (brodal_node const& other) const -> bool;
-        auto addChild        (brodal_node* const newChild) -> void;
-        auto removeChild     (brodal_node* const oldChild) -> void;
-        auto addRightSibling (brodal_node* const sibling)  -> void;
-
-        auto addToW (brodal_node* const node) -> void;
-        auto addToV (brodal_node* const node) -> void;
-        auto addRightViolationSibling (brodal_node* const sibling) -> void;
-
-        auto disconnectSons  () -> brodal_node*;
-        auto disconnect      () -> brodal_node*;
-        auto setRank         () -> void;
-        auto sameRankSibling () const -> brodal_node*;
-        auto isSonOfRoot     () const -> bool;
-        auto isViolating     () const -> bool;
-        auto isInSet         () const -> bool;
-
-        static auto areSiblings       (node_t* const first, node_t* const second) -> bool;
-        static auto swapEntries       (node_t* const first, node_t* const second) -> void;
-        static auto swapTreeNodes     (node_t* const first, node_t* const second) -> void;
-        static auto makeSiblings      (node_t* const first, node_t* const second) -> void;
-        static auto sameRankCount     (node_t const* const node) -> num_t;
-        static auto sameRankViolation (node_t const* const node) -> num_t;
-        static auto removeFromSet     (node_t* const node)  -> void;
-        static auto copyList          (node_t* const first) -> node_t*;
-        static auto copySet           (node_t* const first, node_map const& mapping) -> node_t*;
-        static auto delinkNode        (node_t* const node)  -> delinked_nodes<T, Compare>;
-        static auto linkNodes         (node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*;
-        static auto selectMaxPrio     (node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*;
-
-        template<class UnaryFunction>
-        static auto foldRight (node_t* const first, UnaryFunction func) -> void;
-
-        template<class UnaryFunction>
-        static auto foldLeft (node_t* const first, UnaryFunction func) -> void;
-
-        template<class UnaryFunction>
-        static auto foldNext (node_t* const first, UnaryFunction func) -> void;
-
-        template<class BinaryFunction>
-        static auto zipWith (node_t* const first1, node_t* const first2, BinaryFunction func) -> void;
-
-    public:
-        rank_t rank {0};
-
-        entry_uptr entry {nullptr};
         
-        brodal_node* parent {nullptr};
-        brodal_node* left   {nullptr};
-        brodal_node* right  {nullptr};
-        brodal_node* child  {nullptr};
+        auto operator<         (node_t const& other) const -> bool;
+        auto add_child         (node_t* const newChild)    -> void;
+        auto remove_child      (node_t* const oldChild)    -> void;
+        auto add_right_sibling (node_t* const sibling)     -> void;
+        auto add_to_W          (node_t* const node)        -> void;
+        auto add_to_V          (node_t* const node)        -> void;
+        auto add_set_sibling   (node_t* const sibling)     -> void;
 
-        brodal_node* nextInSet {nullptr};
-        brodal_node* prevInSet {nullptr};
-        brodal_node* setW      {nullptr};
-        brodal_node* setV      {nullptr};
+        auto operator*         ()       -> T&;
+        auto operator*         () const -> T const&;
+        auto disconnect_sons   ()       -> node_t*;
+        auto disconnect        ()       -> node_t*;
+        auto set_rank          ()       -> void;
+        auto same_rank_sibling () const -> node_t*;
+        auto is_son_of_root    () const -> bool;
+        auto is_violating      () const -> bool;
+        auto is_in_set         () const -> bool;
+        auto is_first_in_W_set () const -> bool;
+        auto is_first_in_V_set () const -> bool;
+
+        static auto are_siblings        (node_t* const first, node_t* const second) -> bool;
+        static auto swap_entries        (node_t* const first, node_t* const second) -> void;
+        static auto swap_tree_nodes     (node_t* const first, node_t* const second) -> void;
+        static auto make_siblings       (node_t* const first, node_t* const second) -> void;
+        static auto same_rank_count     (node_t const* const node) -> num_t;
+        static auto same_rank_violation (node_t const* const node) -> num_t;
+        static auto remove_from_set     (node_t* const node)  -> void;
+        static auto copy_list           (node_t* const first) -> node_t*;
+        static auto delink_node         (node_t* const node)  -> delinked_t;
+        static auto copy_set            (node_t* const first, node_map const& mapping)         -> node_t*;
+        static auto link_nodes          (node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*;
+        static auto max_prio_node       (node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*;
+
+        template<class PrevFucntion, class NextFunction>
+        static auto same_rank_impl (node_t const* const node, PrevFucntion prev, NextFunction next) -> num_t;
+
+        template<class UnaryFunction>
+        static auto fold_right (node_t* const first, UnaryFunction func) -> void;
+
+        template<class UnaryFunction>
+        static auto fold_left (node_t* const first, UnaryFunction func) -> void;
+
+        template<class UnaryFunction>
+        static auto fold_next (node_t* const first, UnaryFunction func) -> void;
+
+        template<class UnaryFunction, class NextFunction>
+        static auto fold_impl (node_t* const first, UnaryFunction func, NextFunction get_next) -> void;
+        
+        template<class BinaryFunction>
+        static auto zip_with (node_t* const first1, node_t* const first2, BinaryFunction func) -> void;
+        
+    public:
+        rank_t rank_ {0};
+
+        entry_uptr entry_ {nullptr};
+        
+        node_t* parent_ {nullptr};
+        node_t* left_   {nullptr};
+        node_t* right_  {nullptr};
+        node_t* child_  {nullptr};
+
+        node_t* nextInSet_ {nullptr};
+        node_t* prevInSet_ {nullptr};
+        node_t* setW_      {nullptr};
+        node_t* setV_      {nullptr};
     };
 
     /**
@@ -274,16 +283,6 @@ namespace mix::ds
         entry_t* entry_;
     };    
     
-    namespace brodal_impl
-    {
-        struct always_true_cmp
-        {
-            template<class T>
-            auto operator() (T const&, T const&) -> bool;
-        };
-    }
-
-
 // brodal_queue declaration:
 
     // Ugly forward declarations:
@@ -327,15 +326,9 @@ namespace mix::ds
         {
             RootWrap * managedRoot {nullptr};
 
-            UpperReducer(const UpperReducer &) = default;
-            UpperReducer(UpperReducer &&)      = default;
-            ~UpperReducer()                    = default;
-
             UpperReducer(RootWrap * const root);
 
-            auto operator= (UpperReducer && rhs) -> UpperReducer &;
-
-            auto reduce (const index_t i)       -> void;
+            auto reduce  (const index_t i)       -> void;
             auto get_num (const index_t i) const -> num_t;
         };
 
@@ -343,15 +336,9 @@ namespace mix::ds
         {
             RootWrap * managedRoot {nullptr};
 
-            LowerReducer(const LowerReducer &) = default;
-            LowerReducer(LowerReducer &&)      = default;
-            ~LowerReducer()                    = default;
-
             LowerReducer(RootWrap * const root);
 
-            auto operator= (LowerReducer && rhs) -> LowerReducer &;
-
-            auto reduce (const index_t i)       -> void;
+            auto reduce  (const index_t i)       -> void;
             auto get_num (const index_t i) const -> num_t;
         };
 
@@ -359,16 +346,9 @@ namespace mix::ds
         {
             T1RootWrap * managedRoot {nullptr};
 
-            // TODO nope, rule of zero...
-            ViolationReducer(const ViolationReducer &) = default;
-            ViolationReducer(ViolationReducer &&)      = default;
-            ~ViolationReducer()                        = default;
-
             ViolationReducer(T1RootWrap * const root);
 
-            auto operator= (ViolationReducer && rhs) -> ViolationReducer &;
-
-            auto reduce (const index_t i)       -> void;
+            auto reduce  (const index_t i)       -> void;
             auto get_num (const index_t i) const -> num_t;
         };
 
@@ -888,42 +868,41 @@ namespace mix::ds
     template<class... Args>
     brodal_node<T, Compare>::brodal_node
         (std::piecewise_construct_t, Args&&... args) :
-        entry {std::make_unique<entry_t>(this, std::forward<Args>(args)...)}
+        entry_ {std::make_unique<entry_t>(this, std::forward<Args>(args)...)}
     {
     }
 
     template<class T, class Compare>
     brodal_node<T, Compare>::brodal_node
         (brodal_node const& other) :
-        rank  {other.rank},
-        entry {std::make_unique<entry_t>(this, **other.entry)},
-        child {brodal_node::copyList(other.child)}
+        rank_  {other.rank_},
+        entry_ {std::make_unique<entry_t>(this, **other.entry_)},
+        child_ {node_t::copy_list(other.child_)}
     {
-        brodal_node::foldRight(this->child, [=](node_t* const n) {
-            n->parent = this;
+        node_t::fold_right(child_, [=](node_t* const n)
+        {
+            n->parent_ = this;
         });
     }
 
     template<class T, class Compare>
     brodal_node<T, Compare>::~brodal_node()
     {
-        brodal_node::foldRight(this->child, [](brodal_node * n) { delete n; });
-        // TODO tmp
-        rank = 200;
+        brodal_node::fold_right(child_, [](auto const n) { delete n; });
     }
 
     template<class T, class Compare>
     auto brodal_node<T, Compare>::operator*
         () -> T&
     {
-        return **entry;
+        return **entry_;
     }
 
     template<class T, class Compare>
     auto brodal_node<T, Compare>::operator*
         () const -> T const&
     {
-        return **entry;
+        return **entry_;
     }
 
     template<class T, class Compare>
@@ -934,290 +913,338 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::addChild(node_t* const newChild) -> void
+    auto brodal_node<T, Compare>::add_child
+        (node_t* const newChild) -> void
     {
-        newChild->parent = this;
+        newChild->parent_ = this;
 
-        if (this->child)
+        if (child_)
         {
-            this->child->left = newChild;
-            newChild->right   = this->child;
-            this->child       = newChild;
+            child_->left_ = newChild;
+            newChild->right_   = child_;
+            child_       = newChild;
         }
         else
         {
-            this->child = newChild;
+            child_ = newChild;
         }
         
-        this->setRank();
+        this->set_rank();
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::removeChild(node_t* const oldChild) -> void
+    auto brodal_node<T, Compare>::remove_child
+        (node_t* const oldChild) -> void
     {
-        if (this->child == oldChild)
+        if (child_ == oldChild)
         {
-            this->child = oldChild->right;
+            child_ = oldChild->right_;
         }
 
-        if (oldChild->left)
+        if (oldChild->left_)
         {
-            oldChild->left->right = oldChild->right;
+            oldChild->left_->right_ = oldChild->right_;
         }
 
-        if (oldChild->right)
+        if (oldChild->right_)
         {
-            oldChild->right->left = oldChild->left;
+            oldChild->right_->left_ = oldChild->left_;
         }
 
-        oldChild->parent = nullptr;
-        oldChild->left   = nullptr;
-        oldChild->right  = nullptr;
+        oldChild->parent_ = nullptr;
+        oldChild->left_   = nullptr;
+        oldChild->right_  = nullptr;
 
-        this->setRank();
+        this->set_rank();
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::addRightSibling(node_t* const sibling) -> void
+    auto brodal_node<T, Compare>::add_right_sibling
+        (node_t* const sibling) -> void
     {
-        sibling->parent = this->parent;
-        sibling->left   = this;
-        sibling->right  = this->right;
+        sibling->parent_ = parent_;
+        sibling->left_   = this;
+        sibling->right_  = right_;
         
-        if (this->right) 
+        if (right_) 
         {
-            this->right->left = sibling;
+            right_->left_ = sibling;
         }
 
-        this->right = sibling;
+        right_ = sibling;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::addToW(node_t* const node) -> void
+    auto brodal_node<T, Compare>::add_to_W
+        (node_t* const node) -> void
     {
-        if (this->setW)
+        if (setW_)
         {
-            this->setW->prevInSet = node;
+            setW_->prevInSet_ = node;
         }
         
-        node->nextInSet = this->setW;
-        node->prevInSet = this;
-        this->setW = node;
+        node->nextInSet_ = setW_;
+        node->prevInSet_ = this;
+        setW_ = node;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::addToV(node_t* const node) -> void
+    auto brodal_node<T, Compare>::add_to_V
+        (node_t* const node) -> void
     {
-        if (this->setV)
+        if (setV_)
         {
-            this->setV->prevInSet = node;
+            setV_->prevInSet_ = node;
         }
 
-        node->nextInSet = this->setV;
-        node->prevInSet = this;
-        this->setV = node;
+        node->nextInSet_ = setV_;
+        node->prevInSet_ = this;
+        setV_ = node;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::addRightViolationSibling(node_t* const sibling) -> void
+    auto brodal_node<T, Compare>::add_set_sibling
+        (node_t* const sibling) -> void
     {
-        sibling->prevInSet = this;
-        sibling->nextInSet = this->nextInSet;
-        if ( this->nextInSet ) this->nextInSet->prevInSet = sibling;
-        this->nextInSet = sibling; 
+        sibling->prevInSet_ = this;
+        sibling->nextInSet_ = nextInSet_;
+        
+        if (nextInSet_)
+        {
+            nextInSet_->prevInSet_ = sibling;
+        }
+        
+        nextInSet_ = sibling; 
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::disconnectSons() -> node_t*
+    auto brodal_node<T, Compare>::disconnect_sons
+        () -> node_t*
     {
-        brodal_node::foldRight(this->child, [](node_t* const n) {
-            n->parent = nullptr;
+        node_t::fold_right(child_, [](auto const n)
+        {
+            n->parent_ = nullptr;
         });
 
-        node_t* ret {this->child};
-        this->child = nullptr;
-        this->rank  = 0;
+        auto ret = child_;
+        child_ = nullptr;
+        rank_  = 0;
 
         return ret;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::disconnect() -> node_t*
+    auto brodal_node<T, Compare>::disconnect
+        () -> node_t*
     {
-        this->left  = nullptr;
-        this->right = nullptr;
+        left_  = nullptr;
+        right_ = nullptr;
         
         return this;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::setRank() -> void
+    auto brodal_node<T, Compare>::set_rank
+        () -> void
     {
-        this->rank = this->child ? this->child->rank + 1 : 0;
+        rank_ = child_ ? child_->rank_ + 1 : 0;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::sameRankSibling() const -> node_t*
+    auto brodal_node<T, Compare>::same_rank_sibling
+        () const -> node_t*
     {
-        if (this->left and this->left->rank == this->rank)
+        if (left_ && left_->rank_ == rank_)
         {
-            return this->left;
+            return left_;
         }
 
-        if (this->right and this->right->rank == this->rank)
+        if (right_ && right_->rank_ == rank_)
         {
-            return this->right;
+            return right_;
         }
 
         return nullptr;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::isSonOfRoot() const -> bool
+    auto brodal_node<T, Compare>::is_son_of_root
+        () const -> bool
     {
-        return this->parent and nullptr == this->parent->parent;
+        return parent_ && !parent_->parent_;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::isViolating() const -> bool
+    auto brodal_node<T, Compare>::is_violating
+        () const -> bool
     {
-        return this->parent and *this < *this->parent;
+        return parent_ && *this < *parent_;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::isInSet() const -> bool
+    auto brodal_node<T, Compare>::is_in_set
+        () const -> bool
     {
-        return this->prevInSet != nullptr;
+        return nullptr != prevInSet_;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::areSiblings
+    auto brodal_node<T, Compare>::is_first_in_W_set
+        () const -> bool
+    {
+        return prevInSet_ && prevInSet_->setW_ == this;
+    }
+
+    template<class T, class Compare>
+    auto brodal_node<T, Compare>::is_first_in_V_set
+        () const -> bool
+    {
+        return prevInSet_ && prevInSet_->setV_ == this;
+    }
+
+    template<class T, class Compare>
+    auto brodal_node<T, Compare>::are_siblings
         (node_t* const first, node_t* const second) -> bool
     {
-        return first->parent == second->parent;
+        return first->parent_ == second->parent_;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::swapEntries(node_t* const first, node_t* const second) -> void
+    auto brodal_node<T, Compare>::swap_entries
+        (node_t* const first, node_t* const second) -> void
     {
         using std::swap;
-        swap(first->entry, second->entry);
-        swap(first->entry->node_, second->entry->node_);
+        swap(first->entry_, second->entry_);
+        swap(first->entry_->node_, second->entry_->node_);
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::swapTreeNodes(node_t* const first, node_t* const second) -> void
+    auto brodal_node<T, Compare>::swap_tree_nodes
+        (node_t* const first, node_t* const second) -> void
     {
-        // Swap parent pointers:
-        if (first->parent->child  == first)  first->parent->child  = second;
-        if (second->parent->child == second) second->parent->child = first;
+        using std::swap;
 
-        std::swap(first->parent, second->parent);
-
-        // Swap left and right pointers:
-        if (second->left)  second->left->right = first;
-        if (second->right) second->right->left = first;
-        if (first->left)   first->left->right = second;
-        if (first->right)  first->right->left = second; 
+        // Swap parent_ pointers:
+        if (first->parent_->child_ == first)
+        {
+            first->parent_->child_ = second;
+        }
         
-        std::swap(first->left,  second->left);
-        std::swap(first->right, second->right);
+        if (second->parent_->child_ == second)
+        {
+            second->parent_->child_ = first;
+        }
+
+        swap(first->parent_, second->parent_);
+
+        // Swap left_ and right_ pointers:
+        if (second->left_)
+        {
+            second->left_->right_ = first;
+        }
+
+        if (second->right_)
+        {
+            second->right_->left_ = first;
+        }
+
+        if (first->left_)
+        {
+            first->left_->right_ = second;
+        }
+        
+        if (first->right_)
+        {
+            first->right_->left_ = second; 
+        }
+        
+        swap(first->left_,  second->left_);
+        swap(first->right_, second->right_);
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::makeSiblings(node_t* const first, node_t* const second) -> void
+    auto brodal_node<T, Compare>::make_siblings
+        (node_t* const first, node_t* const second) -> void
     {
-        if (*first->parent < *second->parent)
+        if (*first->parent_ < *second->parent_)
         {
-            brodal_node::swapTreeNodes(first, second->sameRankSibling());
+            node_t::swap_tree_nodes(first, second->same_rank_sibling());
         }
         else
         {
-            brodal_node::swapTreeNodes(first->sameRankSibling(), second);
+            node_t::swap_tree_nodes(first->same_rank_sibling(), second);
         }
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::sameRankCount(node_t const* const node) -> num_t
+    auto brodal_node<T, Compare>::same_rank_count
+        (node_t const* const node) -> num_t
     {
-        num_t count {1};
-        node_t const*  left  {node->left};
-        node_t const*  right {node->right};
-
-        while (left and left->rank == node->rank)
-        {
-            count++;
-            left = left->left;
-        }
-
-        while (right and right->rank == node->rank)
-        {
-            count++;
-            right = right->right;
-        }
-
-        return count;
+        
+        return node_t::same_rank_impl( node
+                                     , [](auto const n){ return n->left_; }
+                                     , [](auto const n){ return n->right_; });
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::sameRankViolation(node_t const* const node) -> num_t
+    auto brodal_node<T, Compare>::same_rank_violation
+        (node_t const* const node) -> num_t
     {
-        num_t count {1};
-
-        node_t const*  prev {node->prevInSet};
-        node_t const*  next {node->nextInSet};
-
-        while (prev and prev->rank == node->rank)
-        {
-            count++;
-            prev = prev->prevInSet;
-        }
-
-        while (next and next->rank == node->rank)
-        {
-            count++;
-            next = next->nextInSet;
-        }
-
-        return count;
+        return node_t::same_rank_impl( node
+                                     , [](auto const n){ return n->prevInSet_; }
+                                     , [](auto const n){ return n->nextInSet_; });
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::removeFromSet(node_t* const node) -> void
+    auto brodal_node<T, Compare>::remove_from_set
+        (node_t* const node) -> void
     {
-        if (node->prevInSet->setW == node)
+        if (node->is_first_in_W_set())
         {
-            node->prevInSet->setW = node->nextInSet;
-            if (node->nextInSet) node->nextInSet->prevInSet = node->prevInSet;
+            node->prevInSet_->setW_ = node->nextInSet_;
+            if (node->nextInSet_)
+            {
+                node->nextInSet_->prevInSet_ = node->prevInSet_;
+            }
         }
-        else if (node->prevInSet->setV == node)
+        else if (node->is_first_in_V_set())
         {
-            node->prevInSet->setV = node->nextInSet;
-            if (node->nextInSet) node->nextInSet->prevInSet = node->prevInSet;
+            node->prevInSet_->setV_ = node->nextInSet_;
+            if (node->nextInSet_)
+            {
+                node->nextInSet_->prevInSet_ = node->prevInSet_;
+            }
         }
         else
         {
-            node->prevInSet->nextInSet = node->nextInSet;
-            if (node->nextInSet) node->nextInSet->prevInSet = node->prevInSet;
+            node->prevInSet_->nextInSet_ = node->nextInSet_;
+            if (node->nextInSet_)
+            {
+                node->nextInSet_->prevInSet_ = node->prevInSet_;
+            }
         }
 
-        node->prevInSet = nullptr;
-        node->nextInSet = nullptr;
+        node->prevInSet_ = nullptr;
+        node->nextInSet_ = nullptr;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::copyList(node_t* const first) -> node_t*
+    auto brodal_node<T, Compare>::copy_list
+        (node_t* const first) -> node_t*
     {
-        if (not first) return nullptr;
+        if (!first)
+        {
+            return nullptr;
+        }
 
-        node_t* newListLast  {new brodal_node(*first)};
-        node_t* const newListFirst {newListLast};
+        auto newListLast = new brodal_node(*first);
+        auto const newListFirst = newListLast;
 
-        brodal_node::foldRight(first->right, [&](node_t* const n) {
-            auto newNode {new brodal_node(*n)};
-
-            newListLast->right = newNode;
-            newNode->left      = newListLast;
+        node_t::fold_right(first->right_, [&](auto const n)
+        {
+            auto const newNode = new brodal_node(*n);
+            newListLast->right_ = newNode;
+            newNode->left_      = newListLast;
             newListLast        = newNode;
         });
 
@@ -1225,18 +1252,22 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::copySet(node_t* const first, node_map const& mapping) -> node_t*
+    auto brodal_node<T, Compare>::copy_set
+        (node_t* const first, node_map const& mapping) -> node_t*
     {
-        if (not first) return nullptr;
+        if (!first)
+        {
+            return nullptr;
+        }
 
-        node_t* newSetLast   {mapping.at(first)};
-        node_t* const newSetFirst {newSetLast};
+        auto newSetLast = mapping.at(first);
+        auto const newSetFirst = newSetLast;
 
-        brodal_node::foldNext(first->nextInSet, [&](node_t* n){
-            node_t* mappedNode {mapping.at(n)};
-
-            newSetLast->nextInSet = mappedNode;
-            mappedNode->prevInSet = newSetLast;
+        node_t::fold_next(first->nextInSet_, [&](auto const n)
+        {
+            auto const mappedNode = mapping.at(n);
+            newSetLast->nextInSet_ = mappedNode;
+            mappedNode->prevInSet_ = newSetLast;
             newSetLast            = mappedNode;
         });
 
@@ -1244,49 +1275,55 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::delinkNode(node_t* const node) -> delinked_nodes<T, Compare>
+    auto brodal_node<T, Compare>::delink_node
+        (node_t* const node) -> delinked_t
     {
-        const num_t sonCount   {brodal_node::sameRankCount(node->child)};
-        const num_t removeSons {sonCount >= 4 ? static_cast<num_t>(2) : sonCount};
+        auto const sonCount   = node_t::same_rank_count(node->child_);
+        auto const removeSons = sonCount >= 4 ? num_t(2) : sonCount;
         
-        node_t* const n1 {node->child};
-        node_t* const n2 {n1->right};
-        node_t* const n3 {removeSons > 2 ? n2->right : nullptr};
+        auto const n1 = node->child_;
+        auto const n2 = n1->right_;
+        auto const n3 = removeSons > 2 ? n2->right_ : nullptr;
 
-        node->removeChild(n1);
-        node->removeChild(n2);
-        if (n3) node->removeChild(n3);
+        node->remove_child(n1);
+        node->remove_child(n2);
+        if (n3)
+        {
+            node->remove_child(n3);
+        }
 
         return {n1, n2, n3, node};
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::linkNodes(node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*
+    auto brodal_node<T, Compare>::link_nodes
+        (node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*
     {
-        node_t* root {brodal_node::selectMaxPrio(n1, n2, n3)};
+        auto const root = node_t::max_prio_node(n1, n2, n3);
 
         if (n1 != root)
         {
-            root->addChild(n1);
+            root->add_child(n1);
         }
 
         if (n2 != root)
         {
-            root->addChild(n2);
+            root->add_child(n2);
         }
 
         if (n3 != root)
         {
-            root->addChild(n3);
+            root->add_child(n3);
         }
 
         return root;
     }
 
     template<class T, class Compare>
-    auto brodal_node<T, Compare>::selectMaxPrio(node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*
+    auto brodal_node<T, Compare>::max_prio_node
+        (node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*
     {
-        node_t* max {n1};
+        auto max = n1;
 
         if (*n2 < *max)
         {
@@ -1302,39 +1339,63 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    template<class UnaryFunction>
-    auto brodal_node<T, Compare>::foldRight(node_t* const first, UnaryFunction func) -> void
+    template<class PrevFucntion, class NextFunction>
+    auto brodal_node<T, Compare>::same_rank_impl
+        (node_t const* const node, PrevFucntion prev, NextFunction next) -> num_t
     {
-        node_t* it {first};
-        while (it)
+        auto count = num_t(1);
+
+        auto prevNode = prev(node);
+        auto nextNode = next(node);
+
+        while (prevNode && prevNode->rank_ == node->rank_)
         {
-            node_t* const next {it->right};
-            func(it);
-            it = next;
+            ++count;
+            prevNode = prev(prevNode);
         }
+
+        while (nextNode && nextNode->rank_ == node->rank_)
+        {
+            ++count;
+            nextNode = next(nextNode);
+        }
+
+        return count;
     }
 
     template<class T, class Compare>
     template<class UnaryFunction>
-    auto brodal_node<T, Compare>::foldLeft(node_t* const first, UnaryFunction func) -> void
+    auto brodal_node<T, Compare>::fold_right
+        (node_t* const first, UnaryFunction func) -> void
     {
-        node_t* it {first};
-        while (it)
-        {
-            node_t* const next {it->left};
-            func(it);
-            it = next;
-        }
+        node_t::fold_impl(first, func, [](auto const n){ return n->right_; });
     }
 
     template<class T, class Compare>
     template<class UnaryFunction>
-    auto brodal_node<T, Compare>::foldNext(node_t* const first, UnaryFunction func) -> void
+    auto brodal_node<T, Compare>::fold_left
+        (node_t* const first, UnaryFunction func) -> void
     {
-        node_t* it {first};
+        node_t::fold_impl(first, func, [](auto const n){ return n->left_; });
+    }
+
+    template<class T, class Compare>
+    template<class UnaryFunction>
+    auto brodal_node<T, Compare>::fold_next
+        (node_t* const first, UnaryFunction func) -> void
+    {
+        node_t::fold_impl(first, func, [](auto const n){ return n->nextInSet_; });
+    }
+
+    template<class T, class Compare>
+    template<class UnaryFunction, class NextFunction>
+    auto brodal_node<T, Compare>::fold_impl
+        (node_t* const first, UnaryFunction func, NextFunction get_next) -> void
+    {
+        auto it = first;
         while (it)
         {
-            node_t* const next {it->nextInSet};
+            auto const next = get_next(it);
             func(it);
             it = next;
         }
@@ -1342,15 +1403,16 @@ namespace mix::ds
 
     template<class T, class Compare>
     template<class BinaryFunction>
-    auto brodal_node<T, Compare>::zipWith(node_t* const fold1, node_t* const fold2, BinaryFunction func) -> void
+    auto brodal_node<T, Compare>::zip_with
+        (node_t* const fold1, node_t* const fold2, BinaryFunction func) -> void
     {
-        node_t* it1 {fold1};
-        node_t* it2 {fold2};
+        auto it1 = fold1;
+        auto it2 = fold2;
 
-        while (it1 and it2)
+        while (it1 && it2)
         {
-            node_t* const next1 {it1->right};
-            node_t* const next2 {it2->right};
+            auto const next1 = it1->right_;
+            auto const next2 = it2->right_;
             
             func(it1, it2);
 
@@ -1373,12 +1435,12 @@ namespace mix::ds
         () -> brodal_tree_iterator&
     {
         // TODO foldr
-        auto next = stack_.top()->child;
+        auto next = stack_.top()->child_;
         stack_.pop();
         while (next)
         {
             stack_.push(next);
-            next = next->right;
+            next = next->right_;
         }
 
         return *this;
@@ -1557,15 +1619,6 @@ namespace mix::ds
         return std::addressof(**entry_);
     }
 
-// always_true_cmp definition:
-
-    template<class T>
-    auto brodal_impl::always_true_cmp::operator()
-        (T const&, T const&) -> bool
-    {
-        return true;
-    }
-
 // brodal_queue definition:
     
 
@@ -1578,15 +1631,6 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::UpperReducer::operator=(UpperReducer && rhs) -> UpperReducer &
-    {
-        this->managedRoot = rhs.managedRoot;
-        rhs.managedRoot   = nullptr;
-        
-        return *this;
-    }
-
-    template<class T, class Compare>
     auto brodal_queue<T, Compare>::UpperReducer::reduce(const index_t i) -> void
     {
         this->managedRoot->reduceUpper(i);
@@ -1596,7 +1640,7 @@ namespace mix::ds
     auto brodal_queue<T, Compare>::UpperReducer::get_num(const index_t i) const -> num_t
     {
         const num_t count {
-            node_t::sameRankCount(this->managedRoot->sons[i])
+            node_t::same_rank_count(this->managedRoot->sons[i])
         };
 
         return count < 6 ? 0 : count - 5;
@@ -1611,15 +1655,6 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::LowerReducer::operator=(LowerReducer && rhs) -> LowerReducer &
-    {
-        this->managedRoot = rhs.managedRoot;
-        rhs.managedRoot   = nullptr;
-        
-        return *this;
-    }
-
-    template<class T, class Compare>
     auto brodal_queue<T, Compare>::LowerReducer::reduce(const index_t i) -> void
     {
         this->managedRoot->reduceLower(i);
@@ -1629,7 +1664,7 @@ namespace mix::ds
     auto brodal_queue<T, Compare>::LowerReducer::get_num(const index_t i) const -> num_t
     {
         const num_t count {
-            node_t::sameRankCount(this->managedRoot->sons[i])
+            node_t::same_rank_count(this->managedRoot->sons[i])
         };
 
         return count >= 4 ? 0 : 4 - count;
@@ -1641,15 +1676,6 @@ namespace mix::ds
     brodal_queue<T, Compare>::ViolationReducer::ViolationReducer(T1RootWrap * const root) :
         managedRoot {root}
     {
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::ViolationReducer::operator=(ViolationReducer && rhs) -> ViolationReducer &
-    {
-        this->managedRoot = rhs.managedRoot;
-        rhs.managedRoot   = nullptr;
-        
-        return *this;
     }
 
     template<class T, class Compare>
@@ -1667,7 +1693,7 @@ namespace mix::ds
         }
 
         const num_t count {
-            node_t::sameRankViolation(this->managedRoot->auxW[i])
+            node_t::same_rank_violation(this->managedRoot->auxW[i])
         };
 
         return count < 5 ? 0 : count - 4;
@@ -1736,19 +1762,19 @@ namespace mix::ds
         {
             node_t* const otherNode {std::addressof(*otherIt)};
             node_t* const thisNode  {std::addressof(*thisIt)};
-            node_t*  setWCopy  {node_t::copySet(otherNode->setW, mapping)};
-            node_t*  setVCopy  {node_t::copySet(otherNode->setV, mapping)};
+            node_t*  setWCopy  {node_t::copy_set(otherNode->setW_, mapping)};
+            node_t*  setVCopy  {node_t::copy_set(otherNode->setV_, mapping)};
 
             if (setWCopy)
             {
-                setWCopy->prevInSet = thisNode;
-                thisNode->setW      = setWCopy;
+                setWCopy->prevInSet_ = thisNode;
+                thisNode->setW_      = setWCopy;
             }
 
             if (setVCopy)
             {
-                setVCopy->prevInSet = thisNode;
-                thisNode->setV      = setVCopy;
+                setVCopy->prevInSet_ = thisNode;
+                thisNode->setV_      = setVCopy;
             }
 
             ++otherIt;
@@ -1759,12 +1785,12 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::addChild(node_t* const child) -> void
     {
-        if (child->isInSet())
+        if (child->is_in_set())
         {
             this->queue->T1.removeViolation(child);
         }
 
-        this->sons[child->rank]->addRightSibling(child);
+        this->sons[child->rank_]->add_right_sibling(child);
     }
 
     template<class T, class Compare>
@@ -1792,19 +1818,19 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::removeChild(node_t* const child) -> void
     {
-        if (this->sons[child->rank] == child)
+        if (this->sons[child->rank_] == child)
         {
-            this->sons[child->rank] = child->right;
+            this->sons[child->rank_] = child->right_;
         }
 
-        this->root->removeChild(child);
+        this->root->remove_child(child);
     }
 
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::addChildChecked(node_t* const child) -> void
     {
         this->addChild(child);
-        this->upperCheck(child->rank);
+        this->upperCheck(child->rank_);
     }
 
     template<class T, class Compare>
@@ -1818,7 +1844,7 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::upperCheck(const rank_t rank) -> void
     {
-        if (this->root->rank > 2 and rank < this->root->rank - 2)
+        if (this->root->rank_ > 2 and rank < this->root->rank_ - 2)
         {
             this->upper.inc(rank);
         }
@@ -1830,7 +1856,7 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::lowerCheck(const rank_t rank) -> void
     {
-        if (this->root->rank > 2 and rank < this->root->rank - 2)
+        if (this->root->rank_ > 2 and rank < this->root->rank_ - 2)
         {
             this->lower.inc(rank);
         }
@@ -1856,8 +1882,8 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::increaseRank(node_t* const n1, node_t* const n2) -> void
     {
-        this->root->addChild(n1);
-        this->root->addChild(n2);
+        this->root->add_child(n1);
+        this->root->add_child(n2);
         this->sons.push_back(n2);
     }
 
@@ -1870,7 +1896,7 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::increase_domain() -> void
     {
-        if ( this->root->rank < 3 ) return;
+        if ( this->root->rank_ < 3 ) return;
 
         this->upper.increase_domain();
         this->lower.increase_domain();
@@ -1879,7 +1905,7 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::decrease_domain() -> void
     {
-        if ( this->root->rank < 3 ) return;
+        if ( this->root->rank_ < 3 ) return;
 
         this->upper.decrease_domain();
         this->lower.decrease_domain();
@@ -1888,8 +1914,8 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::upperCheckNMinus1() -> void
     {
-        const rank_t rank {static_cast<rank_t>(this->root->rank - 1)};
-        num_t count {node_t::sameRankCount(this->sons[rank])};
+        const rank_t rank {static_cast<rank_t>(this->root->rank_ - 1)};
+        num_t count {node_t::same_rank_count(this->sons[rank])};
 
         if ( count <= 7 ) return;
 
@@ -1907,10 +1933,10 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::upperCheckNMinus2() -> void
     {
-        if ( this->root->rank < 2 ) return;
+        if ( this->root->rank_ < 2 ) return;
         
-        const rank_t rank {static_cast<rank_t>(this->root->rank - 2)};
-        const num_t count {node_t::sameRankCount(this->sons[rank])};
+        const rank_t rank {static_cast<rank_t>(this->root->rank_ - 2)};
+        const num_t count {node_t::same_rank_count(this->sons[rank])};
         
         if ( count <= 7 ) return;
 
@@ -1920,16 +1946,16 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::lowerCheckNMinus1() -> void
     {
-        const rank_t rank {static_cast<rank_t>(this->root->rank - 1)};
-        const num_t count {node_t::sameRankCount(this->sons[rank])};
+        const rank_t rank {static_cast<rank_t>(this->root->rank_ - 1)};
+        const num_t count {node_t::same_rank_count(this->sons[rank])};
 
         if ( count >= 2 ) return;
 
         // Case 1:
-        if (this->root->rank > 1)
+        if (this->root->rank_ > 1)
         {
             const num_t countNMinus2 {
-                node_t::sameRankCount(this->sons[rank - 1])
+                node_t::same_rank_count(this->sons[rank - 1])
             };
             if (countNMinus2 >= 5)
             {
@@ -1940,19 +1966,19 @@ namespace mix::ds
 
         // Case 2:
         node_t* const node {this->sons[rank]};
-        const num_t sonsCount {node_t::sameRankCount(node->child)};
+        const num_t sonsCount {node_t::same_rank_count(node->child_)};
         if (sonsCount >= 5)
         {
-            node_t* const n1 {node->child};
-            node_t* const n2 {n1->right};
-            node_t* const n3 {n2->right};
-            if (n1->isInSet()) this->queue->T1.removeViolation(n1);
-            if (n2->isInSet()) this->queue->T1.removeViolation(n2);
-            if (n3->isInSet()) this->queue->T1.removeViolation(n3);
-            node->removeChild(n1);
-            node->removeChild(n2);
-            node->removeChild(n3);
-            node_t* const linked {node_t::linkNodes(n1, n2, n3)};
+            node_t* const n1 {node->child_};
+            node_t* const n2 {n1->right_};
+            node_t* const n3 {n2->right_};
+            if (n1->is_in_set()) this->queue->T1.removeViolation(n1);
+            if (n2->is_in_set()) this->queue->T1.removeViolation(n2);
+            if (n3->is_in_set()) this->queue->T1.removeViolation(n3);
+            node->remove_child(n1);
+            node->remove_child(n2);
+            node->remove_child(n3);
+            node_t* const linked {node_t::link_nodes(n1, n2, n3)};
             this->addChild(linked);
             return;
         }
@@ -1962,11 +1988,11 @@ namespace mix::ds
         this->removeChild(node);
         this->decreaseRank();
 
-        const delinked_nodes delinked1 {node_t::delinkNode(node)};
+        const delinked_nodes delinked1 {node_t::delink_node(node)};
         this->addDelinkedNodes(delinked1);
-        if (node->rank == rank)
+        if (node->rank_ == rank)
         {
-            const delinked_nodes delinked2 {node_t::delinkNode(node)};
+            const delinked_nodes delinked2 {node_t::delink_node(node)};
             this->addDelinkedNodes(delinked2);
         }
         this->addChildChecked(node);
@@ -1975,10 +2001,10 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::RootWrap::lowerCheckNMinus2(const num_t bound) -> num_t
     {
-        if ( this->root->rank < 2 ) return 0;
+        if ( this->root->rank_ < 2 ) return 0;
 
-        const rank_t rank {static_cast<rank_t>(this->root->rank - 2)};
-        const num_t count {node_t::sameRankCount(this->sons[rank])};
+        const rank_t rank {static_cast<rank_t>(this->root->rank_ - 2)};
+        const num_t count {node_t::same_rank_count(this->sons[rank])};
 
         if ( count >= bound ) return 0;
 
@@ -1986,7 +2012,7 @@ namespace mix::ds
 
         this->addDelinkedNodes(delinked);
         this->addChild(delinked.extra);
-        const rank_t extraRank {delinked.extra->rank};
+        const rank_t extraRank {delinked.extra->rank_};
         if (extraRank < rank)
         {
             this->upper.inc(extraRank);
@@ -1999,14 +2025,14 @@ namespace mix::ds
     auto brodal_queue<T, Compare>::RootWrap::linkChildren(const rank_t rank) -> node_t*
     {
         node_t* const n1 {this->sons[rank]};
-        node_t* const n2 {n1->right};
-        node_t* const n3 {n2->right};
+        node_t* const n2 {n1->right_};
+        node_t* const n3 {n2->right_};
 
         this->removeChild(n3);
         this->removeChild(n2);
         this->removeChild(n1);
 
-        return node_t::linkNodes(n1, n2, n3);
+        return node_t::link_nodes(n1, n2, n3);
     } 
 
     template<class T, class Compare>
@@ -2016,7 +2042,7 @@ namespace mix::ds
 
         this->removeChild(toDelink);
 
-        return node_t::delinkNode(toDelink);
+        return node_t::delink_node(toDelink);
     }
 
     template<class T, class Compare>
@@ -2064,39 +2090,39 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::T1RootWrap::addViolation(node_t* const node) -> void
     {
-        if (node->isInSet())
+        if (node->is_in_set())
         {
             this->removeViolation(node);
         }
 
-        if (node->rank >= this->root->rank)
+        if (node->rank_ >= this->root->rank_)
         {
-            this->root->addToV(node);
+            this->root->add_to_V(node);
         }
-        else if (this->auxW[node->rank])
+        else if (this->auxW[node->rank_])
         {
-            this->auxW[node->rank]->addRightViolationSibling(node);
+            this->auxW[node->rank_]->add_set_sibling(node);
         }
         else
         {
-            this->auxW[node->rank] = node;
-            this->root->addToW(node);
+            this->auxW[node->rank_] = node;
+            this->root->add_to_W(node);
         }
     }
 
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::T1RootWrap::removeViolation(node_t* const node) -> void
     {
-        if (node->rank < this->auxW.size())
+        if (node->rank_ < this->auxW.size())
         {
-            if (this->auxW[node->rank] == node)
+            if (this->auxW[node->rank_] == node)
             {
-                node_t* const next {node->nextInSet};
-                this->auxW[node->rank] = (next and next->rank == node->rank ? next : nullptr);
+                node_t* const next {node->nextInSet_};
+                this->auxW[node->rank_] = (next and next->rank_ == node->rank_ ? next : nullptr);
             }
         }
 
-        node_t::removeFromSet(node);
+        node_t::remove_from_set(node);
     }
 
     template<class T, class Compare>
@@ -2125,8 +2151,8 @@ namespace mix::ds
         {
             if (not node) continue;
 
-            const rank_t rank {node->rank};
-            num_t count {node_t::sameRankViolation(node)};
+            const rank_t rank {node->rank_};
+            num_t count {node_t::same_rank_violation(node)};
             while (count > 1)
             {
                 count -= this->reduceViolations(rank);
@@ -2138,13 +2164,13 @@ namespace mix::ds
     auto brodal_queue<T, Compare>::T1RootWrap::increaseRank(node_t* const linked) -> void
     {
         node_t* const n1    {linked};
-        node_t* const n2    {n1->right};
-        node_t* const extra {n2->right};
+        node_t* const n2    {n1->right_};
+        node_t* const extra {n2->right_};
 
         this->increaseRank(n1->disconnect(), n2->disconnect());
         this->increase_domain();
 
-        node_t::foldRight(extra, [=](node_t* const n) {
+        node_t::fold_right(extra, [=](node_t* const n) {
             this->addChildChecked(n->disconnect());
         });
     }
@@ -2209,16 +2235,16 @@ namespace mix::ds
         node_t* first  {nullptr};
         node_t* second {nullptr};
 
-        while (it and it->rank == rank)
+        while (it and it->rank_ == rank)
         {
-            if (not it->isSonOfRoot())
+            if (not it->is_son_of_root())
             {
                 if      (not first)  first  = it;
                 else if (not second) second = it;
                 else return std::make_pair(first, second);
             }
             
-            it = it->nextInSet;
+            it = it->nextInSet_;
         }
 
         return std::make_pair(first, second);
@@ -2233,9 +2259,9 @@ namespace mix::ds
         node_t* first  {nullptr};
         node_t* second {nullptr};
 
-        while (it and it->rank == rank)
+        while (it and it->rank_ == rank)
         {
-            if (it->isSonOfRoot())
+            if (it->is_son_of_root())
             {
                 count++;
                 if (count > 4)
@@ -2245,7 +2271,7 @@ namespace mix::ds
                 }
             }
             
-            it = it->nextInSet;
+            it = it->nextInSet_;
         }
 
         return std::make_pair(first, second);
@@ -2259,7 +2285,7 @@ namespace mix::ds
             return 0;
         }
 
-        if (not node->isViolating())
+        if (not node->is_violating())
         {
             this->removeViolation(node);
             return 1;
@@ -2279,9 +2305,9 @@ namespace mix::ds
     auto brodal_queue<T, Compare>::T1RootWrap::removeNormalViolations(node_t* const first, node_t* const second) -> num_t
     {
         node_t* const n1 {first};
-        node_t* const n2 {second ? second : n1->sameRankSibling()};
+        node_t* const n2 {second ? second : n1->same_rank_sibling()};
 
-        if (not n1->isViolating())
+        if (not n1->is_violating())
         {
             this->removeViolation(n1);
             return 1;
@@ -2291,44 +2317,44 @@ namespace mix::ds
             static_cast<num_t>(n2 != nullptr ? 2 : 1)
         };
 
-        if (not node_t::areSiblings(n1, n2))
+        if (not node_t::are_siblings(n1, n2))
         {
-            node_t::makeSiblings(n1, n2);
+            node_t::make_siblings(n1, n2);
         }
 
-        const num_t siblingCount {node_t::sameRankCount(n1)};
-        node_t* const parent{n1->parent};
+        const num_t siblingCount {node_t::same_rank_count(n1)};
+        node_t* const parent {n1->parent_};
         if (siblingCount > 2)
         {
-            parent->removeChild(n1);
+            parent->remove_child(n1);
             this->addChildChecked(n1);
             return 1;
         }
 
-        const bool removeParent {parent->rank == n1->rank + 1};
+        const bool removeParent {parent->rank_ == n1->rank_ + 1};
         if (removeParent)
         {
-            if (parent->parent != this->root)
+            if (parent->parent_ != this->root)
             {
-                node_t* const replacement {this->sons[parent->rank]->right};
-                node_t::swapTreeNodes(parent, replacement);
-                if (replacement->isViolating())
+                node_t* const replacement {this->sons[parent->rank_]->right_};
+                node_t::swap_tree_nodes(parent, replacement);
+                if (replacement->is_violating())
                 {
                     this->addViolation(replacement);
                 }
             }
-            if (parent->isInSet())
+            if (parent->is_in_set())
             {
                 // Parent will no longer be violating and his rank will change.
                 this->removeViolation(parent);
             }
             this->removeChild(parent);
-            this->lowerCheck(parent->rank);
+            this->lowerCheck(parent->rank_);
             this->queue->addExtraNodes();
         }
         
-        parent->removeChild(n1);
-        parent->removeChild(n2);
+        parent->remove_child(n1);
+        parent->remove_child(n2);
         
         this->addChildChecked(n1);
         this->addChildChecked(n2);
@@ -2377,7 +2403,7 @@ namespace mix::ds
     auto brodal_queue<T, Compare>::T2RootWrap::addChild(node_t* const child) -> void
     {
         RootWrap::addChild(child);
-        if (child->isViolating())
+        if (child->is_violating())
         {
             this->queue->violations.push(child);
         }
@@ -2386,7 +2412,7 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::T2RootWrap::removeChild(node_t* const child) -> void
     {
-        if (child->isInSet())
+        if (child->is_in_set())
         {
             this->queue->T1.removeViolation(child);
         }
@@ -2397,24 +2423,24 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::T2RootWrap::removeLargeSons() -> node_t*
     {
-        const rank_t newRootsRank {static_cast<rank_t>(this->root->rank - 1)};
-        node_t* const ret {this->sons[this->root->rank - 1]};
+        const rank_t newRootsRank {static_cast<rank_t>(this->root->rank_ - 1)};
+        node_t* const ret {this->sons[this->root->rank_ - 1]};
 
         if (0 == newRootsRank)
         {
-            this->root->child = nullptr;
-            this->root->rank  = 0; 
+            this->root->child_ = nullptr;
+            this->root->rank_  = 0; 
         }
         else
         {
-            this->root->child       = this->sons[this->root->rank - 2];
-            this->root->child->left->right = nullptr;
-            this->root->child->left        = nullptr;
-            this->root->setRank();
+            this->root->child_       = this->sons[this->root->rank_ - 2];
+            this->root->child_->left_->right_ = nullptr;
+            this->root->child_->left_        = nullptr;
+            this->root->set_rank();
         }
 
-        node_t::foldRight(ret, [=](node_t* n) {
-            if (n->isInSet())
+        node_t::fold_right(ret, [=](node_t* n) {
+            if (n->is_in_set())
             {
                 this->queue->T1.removeViolation(n);
             }
@@ -2541,24 +2567,24 @@ namespace mix::ds
         T ret {this->find_min()};
         node_t* const oldRoot {this->T1.root};
         node_uptr newRoot {this->findNewRoot()}; 
-        if (newRoot->isInSet())
+        if (newRoot->is_in_set())
         {
             // TODO if it is violating we need to remove it from set and auxW
             this->T1.removeViolation(newRoot.get());
         }
         
-        if (not newRoot->isSonOfRoot())
+        if (not newRoot->is_son_of_root())
         {
             this->makeSonOfRoot(newRoot.get());
         }
 
         this->T1.removeChild(newRoot.get());
-        this->T1.lowerCheck(newRoot->rank);
+        this->T1.lowerCheck(newRoot->rank_);
         this->addExtraNodes();
 
-        node_t* const sonsToAdd {newRoot->disconnectSons()};
-        node_t::swapEntries(newRoot.get(), oldRoot);
-        node_t::foldRight(sonsToAdd, [=](node_t* const n) {
+        node_t* const sonsToAdd {newRoot->disconnect_sons()};
+        node_t::swap_entries(newRoot.get(), oldRoot);
+        node_t::fold_right(sonsToAdd, [=](node_t* const n) {
             this->T1.addChildChecked(n->disconnect());
         });
 
@@ -2595,13 +2621,13 @@ namespace mix::ds
             return this->insert_special_impl(node);
         }
         
-        auto const entry = node->entry.get();
+        auto const entry = node->entry_.get();
 
         this->queueSize++;
 
         if (*node < *this->T1.root)
         {
-            node_t::swapEntries(node, this->T1.root);
+            node_t::swap_entries(node, this->T1.root);
         }
 
         this->T1.addChildChecked(node);
@@ -2617,7 +2643,7 @@ namespace mix::ds
     {
         this->queueSize++;
 
-        auto const entry = node->entry.get();
+        auto const entry = node->entry_.get();
 
         if (1 == this->size())
         {
@@ -2626,7 +2652,7 @@ namespace mix::ds
         }
         else if (*node < *this->T1.root)
         {
-            node_t::swapEntries(node, this->T1.root);
+            node_t::swap_entries(node, this->T1.root);
         }
 
         if (2 == this->size())
@@ -2654,13 +2680,13 @@ namespace mix::ds
 
         if (Cmp {} (**node, **this->T1.root))
         {
-            node_t::swapEntries(node, this->T1.root);
+            node_t::swap_entries(node, this->T1.root);
         }
 
-        if (node->isViolating() and not node->isInSet())
+        if (node->is_violating() and not node->is_in_set())
         {
             this->T1.addViolation(node);
-            this->T1.violationCheck(node->rank);
+            this->T1.violationCheck(node->rank_);
         }
     }
 
@@ -2668,9 +2694,9 @@ namespace mix::ds
     auto brodal_queue<T, Compare>::erase_impl
         (node_t* const node) -> void
     {
-        node_t::swapEntries(node, this->T1.root);
+        node_t::swap_entries(node, this->T1.root);
 
-        if (node->parent && T1.root != node->parent && !node->isInSet())
+        if (node->parent_ && T1.root != node->parent_ && !node->is_in_set())
         {
             // At this point node can be violating even if it is son of t1.
             // If that is the case we can't add it to violation set.
@@ -2700,8 +2726,8 @@ namespace mix::ds
         }
         else
         {
-            node_t* const firstChild  {this->T1.root->disconnectSons()};
-            node_t* const secondChild {firstChild->right};
+            node_t* const firstChild  {this->T1.root->disconnect_sons()};
+            node_t* const secondChild {firstChild->right_};
 
             firstChild->disconnect();
             secondChild->disconnect();
@@ -2884,7 +2910,7 @@ namespace mix::ds
         {
             node_t* const node {this->extraNodes.top()};
             this->extraNodes.pop();
-            if (node->rank < this->T1.root->rank)
+            if (node->rank_ < this->T1.root->rank_)
             {
                 this->T1.addChildChecked(node);
             }
@@ -2903,7 +2929,7 @@ namespace mix::ds
             node_t* const violation {this->violations.top()};
             this->violations.pop();
             this->T1.addViolation(violation);
-            this->T1.violationCheck(violation->rank);
+            this->T1.violationCheck(violation->rank_);
         }
     }
 
@@ -2927,23 +2953,23 @@ namespace mix::ds
         // Disconnect sons of t2.
         node_t* const oldt2         {this->T2.root};
         node_t* const rightFoldable {this->T2.sons[0]};
-        node_t* const leftFoldable  {rightFoldable->left};
-        oldt2->disconnectSons();
+        node_t* const leftFoldable  {rightFoldable->left_};
+        oldt2->disconnect_sons();
         // Reset t2 wrap to defaults.
         this->T2 = T2RootWrap {this};
 
         // Add sons with rank 0 under t1.
-        node_t::foldRight(rightFoldable, [=](node_t* const n) {
+        node_t::fold_right(rightFoldable, [=](node_t* const n) {
             this->T1.addChildChecked(n->disconnect());
         });
 
         // Add other sons with ranks > 0 under t1.
-        node_t::foldLeft(leftFoldable, [=](node_t* const n) {
+        node_t::fold_left(leftFoldable, [=](node_t* const n) {
             n->disconnect();
             
-            while (n->rank >= this->T1.root->rank)
+            while (n->rank_ >= this->T1.root->rank_)
             {
-                const delinked_nodes delinked {node_t::delinkNode(n)};
+                const delinked_nodes delinked {node_t::delink_node(n)};
                 this->T1.addDelinkedNodesChecked(delinked);
             }
             
@@ -2962,10 +2988,10 @@ namespace mix::ds
             return;
         }
 
-        if (this->T2.root->rank <= this->T1.root->rank + 2) // r(t2) is (r(t1) + 1) or (r(t1) + 2)
+        if (this->T2.root->rank_ <= this->T1.root->rank_ + 2) // r(t2) is (r(t1) + 1) or (r(t1) + 2)
         {
             node_t* const sons1 {this->T2.removeLargeSons()};
-            if (this->T2.root->rank > this->T1.root->rank)
+            if (this->T2.root->rank_ > this->T1.root->rank_)
             {
                 node_t* const sons2 {this->T2.removeLargeSons()};
                 this->T1.increaseRank(sons2);
@@ -2980,12 +3006,12 @@ namespace mix::ds
         }
         else
         {
-            const rank_t t1rank {this->T1.root->rank};
+            const rank_t t1rank {this->T1.root->rank_};
             node_t* const toDelink  {this->T2.sons[t1rank + 1]};
             this->T2.removeChild(toDelink);
-            this->T2.lowerCheck(toDelink->rank);
+            this->T2.lowerCheck(toDelink->rank_);
 
-            const delinked_nodes delinked {node_t::delinkNode(toDelink)};
+            const delinked_nodes delinked {node_t::delink_node(toDelink)};
             this->T1.increaseRank(delinked.first, delinked.second);
             this->T1.increase_domain();
             if (delinked.third)
@@ -2994,9 +3020,9 @@ namespace mix::ds
             }
             
             // In case toDelink had more than 3 sons of rank (n-1).
-            while (toDelink->rank == this->T1.root->rank)
+            while (toDelink->rank_ == this->T1.root->rank_)
             {
-                const delinked_nodes delinked {node_t::delinkNode(toDelink)};
+                const delinked_nodes delinked {node_t::delink_node(toDelink)};
                 this->T1.addDelinkedNodesChecked(delinked);
             }
 
@@ -3012,17 +3038,17 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::findNewRoot() const -> node_t*
     {
-        node_t* newRoot {this->T1.root->child};
+        node_t* newRoot {this->T1.root->child_};
 
-        node_t::foldRight(newRoot, [&](node_t* const n) {
+        node_t::fold_right(newRoot, [&](node_t* const n) {
             if (*n < *newRoot) newRoot = n;
         });
 
-        node_t::foldNext(this->T1.root->setW, [&](node_t* const n) {
+        node_t::fold_next(this->T1.root->setW_, [&](node_t* const n) {
             if (*n < *newRoot) newRoot = n;
         });
 
-        node_t::foldNext(this->T1.root->setV, [&](node_t* const n) {
+        node_t::fold_next(this->T1.root->setV_, [&](node_t* const n) {
             if (*n < *newRoot) newRoot = n;
         });
 
@@ -3032,9 +3058,9 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::makeSonOfRoot(node_t* const newRoot) -> void
     {
-        node_t* const swapped {this->T1.sons[newRoot->rank]->right};
-        node_t::swapTreeNodes(newRoot, swapped);
-        if (swapped->isViolating())
+        node_t* const swapped {this->T1.sons[newRoot->rank_]->right_};
+        node_t::swap_tree_nodes(newRoot, swapped);
+        if (swapped->is_violating())
         {
             this->T1.addViolation(swapped);
         }
@@ -3043,15 +3069,15 @@ namespace mix::ds
     template<class T, class Compare>
     auto brodal_queue<T, Compare>::mergeSets(node_t* const newRoot) -> void
     {
-        node_t::foldNext(this->T1.root->setV, [=](node_t* const n) {
+        node_t::fold_next(this->T1.root->setV_, [=](node_t* const n) {
             this->T1.addViolation(n);
         });
 
-        node_t::foldNext(newRoot->setW, [=](node_t* const n) {
+        node_t::fold_next(newRoot->setW_, [=](node_t* const n) {
             this->T1.addViolation(n);
         });
 
-        node_t::foldNext(newRoot->setV, [=](node_t* const n) {
+        node_t::fold_next(newRoot->setV_, [=](node_t* const n) {
             this->T1.addViolation(n);
         });
     }
@@ -3086,7 +3112,7 @@ namespace mix::ds
         // Put violating nodes into the map.
         while (itOriginal != originalEnd)
         {
-            if (itOriginal->isInSet())
+            if (itOriginal->is_in_set())
             {
                 // TODO emplace
                 map[std::addressof(*itOriginal)] = std::addressof(*itCopy);
@@ -3098,10 +3124,10 @@ namespace mix::ds
 
         // Put nodes that are in sons vector into the map.
         // These nodes are 'first of their rank'.
-        node_t::zipWith(original.root->child, copy.root->child, 
+        node_t::zip_with(original.root->child_, copy.root->child_, 
             [&](node_t* const n1, node_t* const n2) {
-                if (not n1->left
-                    or  n1->left->rank != n1->rank)
+                if (not n1->left_
+                    or  n1->left_->rank_ != n1->rank_)
                 {
                     map[n1] = n2;
                 }
@@ -3174,9 +3200,9 @@ namespace mix::ds
         
         node_t const* node {toAdd.releaseRoot()};
 
-        while (node->rank == root.root->rank)
+        while (node->rank_ == root.root->rank)
         {
-            const delinked_nodes delinked {node_t::delinkNode(node)};
+            const delinked_nodes delinked {node_t::delink_node(node)};
             root.addDelinkedNodesChecked(delinked);
         }
 

@@ -33,8 +33,8 @@ auto test_pairing_heap()
     // queue_test_erase <pairing_heap, merge_modes::two_pass>   (n, seed);
     // queue_test_erase <pairing_heap, merge_modes::fifo_queue> (n, seed);
 
-    // queue_test_random_all <pairing_heap, merge_modes::two_pass> (n, seed);
-    // queue_test_random_all <pairing_heap, merge_modes::fifo_queue> (n, seed);
+    queue_test_random_all <pairing_heap, merge_modes::two_pass> (n, seed);
+    queue_test_random_all <pairing_heap, merge_modes::fifo_queue> (n, seed);
 
     // queue_test_meld <pairing_heap, merge_modes::two_pass>   (n, seed);    
     // queue_test_meld <pairing_heap, merge_modes::fifo_queue> (n, seed);    
@@ -60,14 +60,11 @@ auto test_brodal_queue()
     using namespace mix::ds;
     // test_guide();
     // test_queue();
-    // real_test_brodal_queue();
-    // queue_test_other<pairing_heap>(10'000, 2153464);
-    // queue_test_other<brodal_queue>(10'000, 2153464);
-    // queue_test_random_all<brodal_queue>(100'000, 543132);
+    real_test_brodal_queue();
 
-    test_dijkstra_to_point<pairing_heap>(2000, 657);
-    test_dijkstra_to_point<boost_pairing_heap>(2000, 657);
-    test_dijkstra_to_point<brodal_queue>(2000, 657);
+    // test_dijkstra_to_point<pairing_heap>(2000, 657);
+    // test_dijkstra_to_point<boost_pairing_heap>(2000, 657);
+    // test_dijkstra_to_point<brodal_queue>(2000, 657);
 }
 
 auto example_priority_queue()

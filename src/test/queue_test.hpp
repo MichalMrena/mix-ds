@@ -311,10 +311,10 @@ namespace mix::ds
             }
         }
 
-        // TODO test copy
-        // TODO map -> get -> optional
+        auto queueCopy = queue_t(queue);
 
         ASSERT(queue_test_delete(queue), "Test all [internal test delete]");
+        ASSERT(queue_test_delete(queueCopy), "Test all [internal test delete]");
     }
 
     template<template<class, class, class...> class Queue>
