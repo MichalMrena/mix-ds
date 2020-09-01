@@ -67,6 +67,10 @@ namespace mix::ds
     template<class T, class Compare>
     class brodal_node;
 
+    // Forward declarations of the queue:
+    template<class T, class Compare>
+    class brodal_queue;
+
     /**
         Result of delinking a single Brodal node.
      */
@@ -143,16 +147,16 @@ namespace mix::ds
         auto is_first_in_W_set () const -> bool;
         auto is_first_in_V_set () const -> bool;
 
-        static auto are_siblings        (node_t* const first, node_t* const second) -> bool;
-        static auto swap_entries        (node_t* const first, node_t* const second) -> void;
-        static auto swap_tree_nodes     (node_t* const first, node_t* const second) -> void;
-        static auto make_siblings       (node_t* const first, node_t* const second) -> void;
+        static auto remove_from_set     (node_t* const node)       -> void;
+        static auto copy_list           (node_t* const first)      -> node_t*;
+        static auto delink_node         (node_t* const node)       -> delinked_t;
         static auto same_rank_count     (node_t const* const node) -> num_t;
         static auto same_rank_violation (node_t const* const node) -> num_t;
-        static auto remove_from_set     (node_t* const node)  -> void;
-        static auto copy_list           (node_t* const first) -> node_t*;
-        static auto delink_node         (node_t* const node)  -> delinked_t;
-        static auto copy_set            (node_t* const first, node_map const& mapping)         -> node_t*;
+        static auto are_siblings        (node_t* const first, node_t* const second)    -> bool;
+        static auto swap_entries        (node_t* const first, node_t* const second)    -> void;
+        static auto swap_tree_nodes     (node_t* const first, node_t* const second)    -> void;
+        static auto make_siblings       (node_t* const first, node_t* const second)    -> void;
+        static auto copy_set            (node_t* const first, node_map const& mapping) -> node_t*;
         static auto link_nodes          (node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*;
         static auto max_prio_node       (node_t* const n1, node_t* const n2, node_t* const n3) -> node_t*;
 
@@ -175,20 +179,226 @@ namespace mix::ds
         static auto zip_with (node_t* const first1, node_t* const first2, BinaryFunction func) -> void;
         
     public:
-        rank_t rank_ {0};
-
-        entry_uptr entry_ {nullptr};
-        
-        node_t* parent_ {nullptr};
-        node_t* left_   {nullptr};
-        node_t* right_  {nullptr};
-        node_t* child_  {nullptr};
-
-        node_t* nextInSet_ {nullptr};
-        node_t* prevInSet_ {nullptr};
-        node_t* setW_      {nullptr};
-        node_t* setV_      {nullptr};
+        rank_t     rank_      {0};
+        entry_uptr entry_     {nullptr};
+        node_t*    parent_    {nullptr};
+        node_t*    left_      {nullptr};
+        node_t*    right_     {nullptr};
+        node_t*    child_     {nullptr};
+        node_t*    nextInSet_ {nullptr};
+        node_t*    prevInSet_ {nullptr};
+        node_t*    setW_      {nullptr};
+        node_t*    setV_      {nullptr};
     };
+
+    /**
+        Reducer for the upper bound on number of sons.
+     */
+    template<class Reducible, class T, class Compare>
+    struct upper_reducer
+    {
+        using index_t = std::uint8_t;
+        using num_t   = std::uint8_t;
+        using node_t  = brodal_node<T, Compare>;
+
+        upper_reducer (Reducible* const root);
+        auto reduce   (index_t const i)       -> void;
+        auto get_num  (index_t const i) const -> num_t;
+
+        Reducible* managedRoot_ {nullptr};
+    };
+
+    /**
+        Reducer for the lower bound on number of sons.
+     */
+    template<class Reducible, class T, class Compare>
+    struct lower_reducer
+    {
+        using index_t = std::uint8_t;
+        using num_t   = std::uint8_t;
+        using node_t  = brodal_node<T, Compare>;
+
+        lower_reducer (Reducible* const root);
+        auto reduce   (index_t const i)       -> void;
+        auto get_num  (index_t const i) const -> num_t;
+        
+        Reducible* managedRoot_ {nullptr};
+    };
+
+    /**
+        Reducer for the number of violation.
+     */
+    template<class Reducible, class T, class Compare>
+    struct violation_reducer
+    {
+        using index_t = std::uint8_t;
+        using num_t   = std::uint8_t;
+        using node_t  = brodal_node<T, Compare>;
+
+        violation_reducer (Reducible* const root);
+        auto reduce       (index_t const i)       -> void;
+        auto get_num      (index_t const i) const -> num_t;
+        
+        Reducible* managedRoot_ {nullptr};
+    };
+
+    /**
+        Wrapper for the root of a tree.
+     */
+    template<class Tree, class T, class Compare>
+    class root_wrap
+    {
+    public:
+        using node_t        = brodal_node<T, Compare>;
+        using queue_t       = brodal_queue<T, Compare>;
+        using num_t         = std::uint8_t;
+        using rank_t        = std::uint8_t;
+        using delinked_t    = delinked_nodes<T, Compare>;
+        using node_map      = std::unordered_map<node_t const*, node_t*>;
+        using up_reducer_t  = upper_reducer<root_wrap, T, Compare>;
+        using low_reducer_t = lower_reducer<root_wrap, T, Compare>;
+
+    public:
+        root_wrap(queue_t* const queue);
+        auto operator= (root_wrap&& other) -> root_wrap &;
+
+        auto copyTree       (root_wrap const& other) -> void;
+        auto copySons       (root_wrap const& other, node_map const& mapping) -> void;
+        auto copyViolations (root_wrap const& other, node_map const& mapping) -> void;
+
+        auto addChild_base    (node_t* const child)     -> void;
+        auto removeChild_base (node_t* const child)     -> void;
+        auto addChildChecked          (node_t* const child)     -> void;
+        auto removeChildChecked       (node_t* const child)     -> void;
+        auto addDelinkedNodes         (delinked_t const& nodes) -> void;
+        auto addDelinkedNodesChecked  (delinked_t const& nodes) -> void;
+
+        auto releaseRoot () -> node_t*;
+
+        auto upperCheck (rank_t const rank) -> void;
+        auto lowerCheck (rank_t const rank) -> void;
+
+        auto reduceUpper (rank_t const rank) -> void;
+        auto reduceLower (rank_t const rank) -> void;
+
+        auto increaseRank_base (node_t* const n1, node_t* const n2) -> void;
+        auto decreaseRank_base ()                           -> void;
+
+        auto increase_domain_base () -> void;
+        auto decrease_domain_base () -> void;
+
+        static auto swap (root_wrap& first, root_wrap& second) -> void;
+
+    public:
+        auto upperCheckNMinus1 () -> void;
+        auto upperCheckNMinus2 () -> void;
+        auto lowerCheckNMinus1 () -> void;
+        auto lowerCheckNMinus2 (num_t const bound) -> num_t;
+
+        auto linkChildren (rank_t const rank) -> node_t*;
+        auto delinkChild  (rank_t const rank) -> delinked_t;
+
+    public:
+        queue_t*             queue {nullptr};
+        node_t*              root  {nullptr};
+        guide<up_reducer_t>  upper {up_reducer_t  {this}};
+        guide<low_reducer_t> lower {low_reducer_t {this}};
+        std::vector<node_t*> sons;
+    };
+
+    template<class T, class Compare>
+    class t1_wrap : public root_wrap<T, Compare>
+    {
+    public:
+        using node_t         = brodal_node<T, Compare>;
+        using queue_t        = brodal_queue<T, Compare>;
+        using num_t          = std::uint8_t;
+        using rank_t         = std::uint8_t;
+        using delinked_t     = delinked_nodes<T, Compare>;
+        using node_map       = std::unordered_map<node_t const*, node_t*>;
+        using node_ptr_pair  = std::pair<node_t*, node_t*>;
+        using viol_reducer_t = violation_reducer<t1_wrap, T, Compare>;
+        using base_t         = root_wrap<T, Compare>;
+
+    public:
+        t1_wrap(queue_t* const queue);
+
+        auto operator= (t1_wrap const& other) -> t1_wrap &;
+        auto operator= (t1_wrap && other)     -> t1_wrap &;
+
+        auto copyAuxViolations (t1_wrap const& other, node_map const& mapping) -> void;
+
+        auto addViolation    (node_t* const node) -> void;
+        auto removeViolation (node_t* const node) -> void;
+
+        auto violationCheck  (rank_t const rank) -> void;
+        auto reduceViolation (rank_t const rank) -> void;
+
+        auto fullyReduceViolations () -> void;
+
+        auto increaseRank (node_t* const linked) -> void;
+        auto increaseRank (node_t* const n1, node_t* const n2) -> void;
+        auto decreaseRank ()                                   -> void;
+
+        auto increase_domain () -> void;
+        auto decrease_domain () -> void;
+
+        static auto swap (t1_wrap& first, t1_wrap& second) -> void;
+
+    public:
+        /// Removes at least one violation of given rank.
+        /// Can create one violation of rank (rank+1),
+        /// but in that case it removes two violations.
+        /// @return Number of violations removed.
+        auto reduceViolations (const rank_t rank) -> num_t;
+
+        auto pickNormalViolations (const rank_t rank) -> node_ptr_pair;
+
+        /// Pick violations of given rank that are sons of t2. 
+        /// First 4 violations are ignored, i.e. if there are 
+        /// 5 violations, only one is returned.
+        auto pickT2SonViolations  (const rank_t rank) -> node_ptr_pair;
+
+        /// @return 1 If violating node was removed.
+        ///         0 If violating node was not removed,
+        ///           i.e. node was nullptr.  
+        auto removeT2Violation (node_t* const node) -> num_t;
+
+        auto removeNormalViolations (node_t* const first, node_t* const second) -> num_t;
+
+    public:
+        guide<viol_reducer_t> violation {viol_reducer_t {this}};
+        std::vector<node_t*> auxW;
+    };
+
+    template<class T, class Compare>
+    class t2_wrap : public root_wrap<T, Compare>
+    {
+    public:
+        using node_t  = brodal_node<T, Compare>;
+        using queue_t = brodal_queue<T, Compare>;
+        using num_t   = std::uint8_t;
+        using rank_t  = std::uint8_t;
+        using base_t  = root_wrap<T, Compare>;
+
+    public:
+        t2_wrap (queue_t * const queue);
+
+        auto operator= (root_wrap<T, Compare>&& other) -> t2_wrap &;
+        auto operator= (t2_wrap const& other) -> t2_wrap &;
+        auto operator= (t2_wrap&& other)      -> t2_wrap &;
+
+        auto addChild    (node_t* const child) -> void;
+        auto removeChild (node_t* const child) -> void;
+
+        /// Does NOT perform any guide adjustments.
+        /// Leaves wrap in an incorrect state.
+        /// Use only if wrap will be discarded soon afer.
+        auto removeLargeSons () -> node_t*; 
+
+        static auto swap (t2_wrap & first, t2_wrap & second) -> void;
+    };
+
 
     /**
         Iterator of a single brodal tree.
@@ -284,10 +494,7 @@ namespace mix::ds
     };    
     
 // brodal_queue declaration:
-
-    // Ugly forward declarations:
-    template<class T, class Compare>
-    class brodal_queue;
+   
 
     template<class T, class Compare>
     auto swap(brodal_queue<T, Compare> & first, 
@@ -301,178 +508,18 @@ namespace mix::ds
     template<class T, class Compare = std::less<T>>
     class brodal_queue
     {
-    private: // Forward declarations:
-        struct RootWrap;
-        struct T1RootWrap;
-        struct IteratorNode;
-
     private: // Member types:
-        using num_t   = std::uint8_t;
-        using index_t = std::uint8_t;
-        using rank_t  = index_t;
-
+        using num_t          = std::uint8_t;
+        using index_t        = std::uint8_t;
+        using rank_t         = index_t;
         using node_t         = brodal_node<T, Compare>;
         using node_uptr      = std::unique_ptr<node_t>;
         using node_ptr_pair  = std::pair<node_t*, node_t*>;
-        using wrap_ref       = RootWrap &;
-        using cwrap_ref      = const RootWrap &;
-        using wrap_ptr       = RootWrap *;
-        using t1_wrap_ref    = T1RootWrap &;
-        using iter_node_uptr = std::unique_ptr<IteratorNode>;
+        using wrap_ref       = root_wrap<T, Compare>&;
+        using cwrap_ref      = root_wrap<T, Compare> const&;
+        using wrap_ptr       = root_wrap<T, Compare> *;
+        using t1_wrap_ref    = t1_wrap<T, Compare>&;
         using node_map       = std::unordered_map<node_t const*, node_t*>;
-
-    private: // Nested classes:
-        struct UpperReducer
-        {
-            RootWrap * managedRoot {nullptr};
-
-            UpperReducer(RootWrap * const root);
-
-            auto reduce  (const index_t i)       -> void;
-            auto get_num (const index_t i) const -> num_t;
-        };
-
-        struct LowerReducer
-        {
-            RootWrap * managedRoot {nullptr};
-
-            LowerReducer(RootWrap * const root);
-
-            auto reduce  (const index_t i)       -> void;
-            auto get_num (const index_t i) const -> num_t;
-        };
-
-        struct ViolationReducer
-        {
-            T1RootWrap * managedRoot {nullptr};
-
-            ViolationReducer(T1RootWrap * const root);
-
-            auto reduce  (const index_t i)       -> void;
-            auto get_num (const index_t i) const -> num_t;
-        };
-
-        struct RootWrap
-        {
-            brodal_queue*        queue {nullptr};
-            node_t*              root  {nullptr};
-            guide<UpperReducer>  upper {UpperReducer {this}};
-            guide<LowerReducer>  lower {LowerReducer {this}};
-            std::vector<node_t*> sons;
-
-            RootWrap(brodal_queue * const queue);
-            virtual ~RootWrap();
-            auto operator= (RootWrap && other)      -> RootWrap &;
-
-            auto copyTree       (const RootWrap & other) -> void;
-            auto copySons       (const RootWrap & other, const node_map & mapping) -> void;
-            auto copyViolations (const RootWrap & other, const node_map & mapping) -> void;
-
-            // TODO nie virtuálne ale nejako cez napr. constexpr if
-            virtual auto addChild    (node_t* const child) -> void;
-            virtual auto removeChild (node_t* const child) -> void;
-            auto addChildChecked     (node_t* const child) -> void;
-            auto removeChildChecked  (node_t* const child) -> void;
-            auto addDelinkedNodes        (delinked_nodes<T, Compare> const& nodes) -> void;
-            auto addDelinkedNodesChecked (delinked_nodes<T, Compare> const& nodes) -> void;
-
-            auto releaseRoot () -> node_t*;
-
-            auto upperCheck (const rank_t rank) -> void;
-            auto lowerCheck (const rank_t rank) -> void;
-
-            auto reduceUpper (const rank_t rank) -> void;
-            auto reduceLower (const rank_t rank) -> void;
-
-            virtual auto increaseRank (node_t* const n1, node_t* const n2) -> void;
-            virtual auto decreaseRank ()                           -> void;
-
-            virtual auto increase_domain () -> void;
-            virtual auto decrease_domain () -> void;
-
-            static auto swap(RootWrap & first, RootWrap & second) -> void;
-
-        private:
-            auto upperCheckNMinus1 () -> void;
-            auto upperCheckNMinus2 () -> void;
-            auto lowerCheckNMinus1 () -> void;
-            auto lowerCheckNMinus2 (const num_t bound) -> num_t;
-
-            auto linkChildren (const rank_t rank) -> node_t*;
-            auto delinkChild  (const rank_t rank) -> delinked_nodes<T, Compare>;
-        };
-
-        struct T1RootWrap : public RootWrap
-        {
-            guide<ViolationReducer> violation {ViolationReducer {this}};
-            std::vector<node_t*> auxW;
-
-            T1RootWrap(brodal_queue * const queue);
-            virtual ~T1RootWrap() = default;
-
-            auto operator= (const T1RootWrap & other) -> T1RootWrap &;
-            auto operator= (T1RootWrap && other)      -> T1RootWrap &;
-
-            auto copyAuxViolations (const T1RootWrap & other, const node_map & mapping) -> void;
-
-            auto addViolation    (node_t* const node) -> void;
-            auto removeViolation (node_t* const node) -> void;
-
-            auto violationCheck  (const rank_t rank) -> void;
-            auto reduceViolation (const rank_t rank) -> void;
-
-            auto fullyReduceViolations () -> void;
-
-            auto increaseRank (node_t* const linked) -> void;
-            auto increaseRank (node_t* const n1, node_t* const n2) -> void override;
-            auto decreaseRank ()                                   -> void override;
-
-            auto increase_domain () -> void override;
-            auto decrease_domain () -> void override;
-
-            static auto swap(T1RootWrap & first, T1RootWrap & second) -> void;
-
-        private:
-            /// Removes at least one violation of given rank.
-            /// Can create one violation of rank (rank+1),
-            /// but in that case it removes two violations.
-            /// @return Number of violations removed.
-            auto reduceViolations (const rank_t rank) -> num_t;
-
-            auto pickNormalViolations (const rank_t rank) -> node_ptr_pair;
-
-            /// Pick violations of given rank that are sons of t2. 
-            /// First 4 violations are ignored, i.e. if there are 
-            /// 5 violations, only one is returned.
-            auto pickT2SonViolations  (const rank_t rank) -> node_ptr_pair;
-
-            /// @return 1 If violating node was removed.
-            ///         0 If violating node was not removed,
-            ///           i.e. node was nullptr.  
-            auto removeT2Violation (node_t* const node) -> num_t;
-
-            auto removeNormalViolations (node_t* const first, node_t* const second) -> num_t;
-        };
-
-        struct T2RootWrap : public RootWrap
-        {
-            T2RootWrap(brodal_queue * const queue);
-            virtual ~T2RootWrap() = default;
-
-            auto operator= (RootWrap   && other)      -> T2RootWrap &;
-            auto operator= (const T2RootWrap & other) -> T2RootWrap &;
-            auto operator= (T2RootWrap && other)      -> T2RootWrap &;
-
-            auto addChild    (node_t* const child) -> void override;
-            auto removeChild (node_t* const child) -> void override;
-
-            /// Does NOT perform any guide adjustments.
-            /// Leaves wrap in an incorrect state.
-            /// Use only if wrap will be discarded soon afer.
-            auto removeLargeSons () -> node_t*; 
-
-            static auto swap(T2RootWrap & first, T2RootWrap & second) -> void;
-        };
 
     public:  // Member types:
         using value_type      = T;
@@ -488,8 +535,8 @@ namespace mix::ds
     public: // BrodalQueue members:
         std::size_t queueSize {0};
 
-        T1RootWrap T1 {this};
-        T2RootWrap T2 {this};
+        t1_wrap<T, Compare> T1 {this};
+        t2_wrap<T, Compare> T2 {this};
 
         std::stack<node_t*> extraNodes;
         std::stack<node_t*> violations;
@@ -531,7 +578,7 @@ namespace mix::ds
         friend auto swap<T, Compare>(brodal_queue<T, Compare> & first, 
                                      brodal_queue<T, Compare> & second) noexcept -> void;
 
-    private: // Auxiliary methods:
+    public: // Auxiliary methods:
         template<class... Args>
         auto new_node (Args&&... args) -> node_t*;
 
@@ -1425,7 +1472,7 @@ namespace mix::ds
 
     template<class T, class Compare>
     brodal_tree_iterator<T, Compare>::brodal_tree_iterator
-        (node_t* const root) : 
+        (node_t* const root) :
         stack_ {root ? std::deque {root} : std::deque<node_t*> {}}
     {
     }
@@ -1475,7 +1522,7 @@ namespace mix::ds
     {
         return (stack_.empty() && rhs.stack_.empty())
             || (stack_.size()  == rhs.stack_.size()
-            &&  stack_.top() == rhs.stack_.top());
+            &&  stack_.top()   == rhs.stack_.top());
     }
 
     template<class T, class Compare>
@@ -1619,102 +1666,22 @@ namespace mix::ds
         return std::addressof(**entry_);
     }
 
-// brodal_queue definition:
-    
-
-    // BrodalQueue::UpperReducer implementation:
+// root_wrap definition:
 
     template<class T, class Compare>
-    brodal_queue<T, Compare>::UpperReducer::UpperReducer(RootWrap * const root) :
-        managedRoot {root}
-    {
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::UpperReducer::reduce(const index_t i) -> void
-    {
-        this->managedRoot->reduceUpper(i);
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::UpperReducer::get_num(const index_t i) const -> num_t
-    {
-        const num_t count {
-            node_t::same_rank_count(this->managedRoot->sons[i])
-        };
-
-        return count < 6 ? 0 : count - 5;
-    }
-
-    // BrodalQueue::LowerReducer implementation:
-
-    template<class T, class Compare>
-    brodal_queue<T, Compare>::LowerReducer::LowerReducer(RootWrap * const root) :
-        managedRoot {root}
-    {
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::LowerReducer::reduce(const index_t i) -> void
-    {
-        this->managedRoot->reduceLower(i);
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::LowerReducer::get_num(const index_t i) const -> num_t
-    {
-        const num_t count {
-            node_t::same_rank_count(this->managedRoot->sons[i])
-        };
-
-        return count >= 4 ? 0 : 4 - count;
-    }
-
-    // BrodalQueue::ViolationReducer implementation:
-
-    template<class T, class Compare>
-    brodal_queue<T, Compare>::ViolationReducer::ViolationReducer(T1RootWrap * const root) :
-        managedRoot {root}
-    {
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::ViolationReducer::reduce(const index_t i) -> void
-    {
-        this->managedRoot->reduceViolation(i);
-    }
-
-    template<class T, class Compare>
-    auto brodal_queue<T, Compare>::ViolationReducer::get_num(const index_t i) const -> num_t
-    {
-        if (not this->managedRoot->auxW[i]) 
-        {
-            return 0;
-        }
-
-        const num_t count {
-            node_t::same_rank_violation(this->managedRoot->auxW[i])
-        };
-
-        return count < 5 ? 0 : count - 4;
-    } 
-
-    // BrodalQueue::RootWrap implementation:
-
-    template<class T, class Compare>
-    brodal_queue<T, Compare>::RootWrap::RootWrap(brodal_queue * const queue) :
+    root_wrap<T, Compare>::root_wrap(brodal_queue<T, Compare> * const queue) :
         queue {queue}
     {
     }
 
     template<class T, class Compare>
-    brodal_queue<T, Compare>::RootWrap::~RootWrap()
+    root_wrap<T, Compare>::~root_wrap()
     {
         delete this->root;
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::operator=(RootWrap && other) -> RootWrap &
+    auto root_wrap<T, Compare>::operator=(root_wrap && other) -> root_wrap &
     {
         this->root = other.root;
         other.root = nullptr;
@@ -1727,7 +1694,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::copyTree(const RootWrap & other) -> void
+    auto root_wrap<T, Compare>::copyTree(const root_wrap & other) -> void
     {
         this->upper = other.upper;
         this->lower = other.lower;
@@ -1739,7 +1706,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::copySons(const RootWrap & other, const node_map & mapping) -> void
+    auto root_wrap<T, Compare>::copySons(const root_wrap & other, const node_map & mapping) -> void
     {
         this->sons.reserve(other.sons.size());
 
@@ -1750,7 +1717,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::copyViolations(const RootWrap & other, const node_map & mapping) -> void
+    auto root_wrap<T, Compare>::copyViolations(const root_wrap & other, const node_map & mapping) -> void
     {
         using tree_iterator_t = brodal_tree_iterator<T, Compare>;
 
@@ -1783,7 +1750,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::addChild(node_t* const child) -> void
+    auto root_wrap<T, Compare>::addChild(node_t* const child) -> void
     {
         if (child->is_in_set())
         {
@@ -1794,7 +1761,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::addDelinkedNodes(const delinked_nodes<T, Compare> & nodes) -> void
+    auto root_wrap<T, Compare>::addDelinkedNodes(const delinked_nodes<T, Compare> & nodes) -> void
     {
         this->addChild(nodes.first);
         this->addChild(nodes.second);
@@ -1805,7 +1772,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::addDelinkedNodesChecked(const delinked_nodes<T, Compare> & nodes) -> void
+    auto root_wrap<T, Compare>::addDelinkedNodesChecked(const delinked_nodes<T, Compare> & nodes) -> void
     {
         this->addChildChecked(nodes.first);
         this->addChildChecked(nodes.second);
@@ -1816,7 +1783,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::removeChild(node_t* const child) -> void
+    auto root_wrap<T, Compare>::removeChild(node_t* const child) -> void
     {
         if (this->sons[child->rank_] == child)
         {
@@ -1827,14 +1794,14 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::addChildChecked(node_t* const child) -> void
+    auto root_wrap<T, Compare>::addChildChecked(node_t* const child) -> void
     {
         this->addChild(child);
         this->upperCheck(child->rank_);
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::releaseRoot() -> node_t*
+    auto root_wrap<T, Compare>::releaseRoot() -> node_t*
     {
         node_t* ret {this->root};
         this->root = nullptr;
@@ -1842,7 +1809,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::upperCheck(const rank_t rank) -> void
+    auto root_wrap<T, Compare>::upperCheck(const rank_t rank) -> void
     {
         if (this->root->rank_ > 2 and rank < this->root->rank_ - 2)
         {
@@ -1854,7 +1821,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::lowerCheck(const rank_t rank) -> void
+    auto root_wrap<T, Compare>::lowerCheck(const rank_t rank) -> void
     {
         if (this->root->rank_ > 2 and rank < this->root->rank_ - 2)
         {
@@ -1866,13 +1833,13 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::reduceUpper(const rank_t rank) -> void
+    auto root_wrap<T, Compare>::reduceUpper(const rank_t rank) -> void
     {
         this->addChild(this->linkChildren(rank));
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::reduceLower(const rank_t rank) -> void
+    auto root_wrap<T, Compare>::reduceLower(const rank_t rank) -> void
     {
         const delinked_nodes delinked {this->delinkChild(rank + 1)};
         this->addDelinkedNodes(delinked);
@@ -1880,7 +1847,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::increaseRank(node_t* const n1, node_t* const n2) -> void
+    auto root_wrap<T, Compare>::increaseRank(node_t* const n1, node_t* const n2) -> void
     {
         this->root->add_child(n1);
         this->root->add_child(n2);
@@ -1888,13 +1855,13 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::decreaseRank() -> void
+    auto root_wrap<T, Compare>::decreaseRank() -> void
     {
         this->sons.pop_back();
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::increase_domain() -> void
+    auto root_wrap<T, Compare>::increase_domain() -> void
     {
         if ( this->root->rank_ < 3 ) return;
 
@@ -1903,7 +1870,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::decrease_domain() -> void
+    auto root_wrap<T, Compare>::decrease_domain() -> void
     {
         if ( this->root->rank_ < 3 ) return;
 
@@ -1912,7 +1879,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::upperCheckNMinus1() -> void
+    auto root_wrap<T, Compare>::upperCheckNMinus1() -> void
     {
         const rank_t rank {static_cast<rank_t>(this->root->rank_ - 1)};
         num_t count {node_t::same_rank_count(this->sons[rank])};
@@ -1931,7 +1898,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::upperCheckNMinus2() -> void
+    auto root_wrap<T, Compare>::upperCheckNMinus2() -> void
     {
         if ( this->root->rank_ < 2 ) return;
         
@@ -1944,7 +1911,7 @@ namespace mix::ds
     }
     
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::lowerCheckNMinus1() -> void
+    auto root_wrap<T, Compare>::lowerCheckNMinus1() -> void
     {
         const rank_t rank {static_cast<rank_t>(this->root->rank_ - 1)};
         const num_t count {node_t::same_rank_count(this->sons[rank])};
@@ -1999,7 +1966,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::lowerCheckNMinus2(const num_t bound) -> num_t
+    auto root_wrap<T, Compare>::lowerCheckNMinus2(const num_t bound) -> num_t
     {
         if ( this->root->rank_ < 2 ) return 0;
 
@@ -2022,7 +1989,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::linkChildren(const rank_t rank) -> node_t*
+    auto root_wrap<T, Compare>::linkChildren(const rank_t rank) -> node_t*
     {
         node_t* const n1 {this->sons[rank]};
         node_t* const n2 {n1->right_};
@@ -2036,7 +2003,7 @@ namespace mix::ds
     } 
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::delinkChild(const rank_t rank) -> delinked_nodes<T, Compare>
+    auto root_wrap<T, Compare>::delinkChild(const rank_t rank) -> delinked_nodes<T, Compare>
     {
         node_t* const toDelink {this->sons[rank]};
 
@@ -2046,7 +2013,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::RootWrap::swap(RootWrap & first, RootWrap & second) -> void
+    auto root_wrap<T, Compare>::swap(root_wrap & first, root_wrap & second) -> void
     {
         using std::swap;
         swap(first.root,  second.root);
@@ -2055,18 +2022,18 @@ namespace mix::ds
         swap(first.sons,  second.sons);
     }
 
-    // BrodalQueue::T1RootWrap implementation:
+// t1_wrap definition:
 
     template<class T, class Compare>
-    brodal_queue<T, Compare>::T1RootWrap::T1RootWrap(brodal_queue * const queue) :
-        RootWrap {queue}
+    t1_wrap<T, Compare>::t1_wrap(brodal_queue<T, Compare>* const queue) :
+        base_t {queue}
     {
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::operator=(T1RootWrap && other) -> T1RootWrap &
+    auto t1_wrap<T, Compare>::operator=(t1_wrap && other) -> t1_wrap &
     {
-        RootWrap::operator=(std::move(other));
+        base_t::operator=(std::move(other));
 
         this->violation = std::move(other.violation);
         this->auxW      = std::move(other.auxW);
@@ -2075,7 +2042,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::copyAuxViolations(const T1RootWrap & other, const node_map & mapping) -> void
+    auto t1_wrap<T, Compare>::copyAuxViolations(const t1_wrap & other, const node_map & mapping) -> void
     {
         this->violation = other.violation;
         
@@ -2088,7 +2055,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::addViolation(node_t* const node) -> void
+    auto t1_wrap<T, Compare>::addViolation(node_t* const node) -> void
     {
         if (node->is_in_set())
         {
@@ -2111,7 +2078,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::removeViolation(node_t* const node) -> void
+    auto t1_wrap<T, Compare>::removeViolation(node_t* const node) -> void
     {
         if (node->rank_ < this->auxW.size())
         {
@@ -2126,7 +2093,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::violationCheck(const rank_t rank) -> void
+    auto t1_wrap<T, Compare>::violationCheck(const rank_t rank) -> void
     {
         if (rank < this->auxW.size())
         {
@@ -2135,7 +2102,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::reduceViolation(const rank_t rank) -> void
+    auto t1_wrap<T, Compare>::reduceViolation(const rank_t rank) -> void
     {
         num_t removed {0};
         while (removed < 2)
@@ -2145,7 +2112,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::fullyReduceViolations() -> void
+    auto t1_wrap<T, Compare>::fullyReduceViolations() -> void
     {
         for (node_t const* node : this->auxW)
         {
@@ -2161,7 +2128,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::increaseRank(node_t* const linked) -> void
+    auto t1_wrap<T, Compare>::increaseRank(node_t* const linked) -> void
     {
         node_t* const n1    {linked};
         node_t* const n2    {n1->right_};
@@ -2176,35 +2143,35 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::increaseRank(node_t* const n1, node_t* const n2) -> void
+    auto t1_wrap<T, Compare>::increaseRank(node_t* const n1, node_t* const n2) -> void
     {
-        RootWrap::increaseRank(n1, n2);
+        base_t::increaseRank(n1, n2);
         this->auxW.push_back(nullptr);
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::decreaseRank() -> void
+    auto t1_wrap<T, Compare>::decreaseRank() -> void
     {
-        RootWrap::decreaseRank();
+        base_t::decreaseRank();
         this->auxW.pop_back();
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::increase_domain() -> void
+    auto t1_wrap<T, Compare>::increase_domain() -> void
     {
-        RootWrap::increase_domain();
+        base_t::increase_domain();
         this->violation.increase_domain();
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::decrease_domain() -> void
+    auto t1_wrap<T, Compare>::decrease_domain() -> void
     {
-        RootWrap::decrease_domain();
+        base_t::decrease_domain();
         this->violation.decrease_domain();
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::reduceViolations(const rank_t rank) -> num_t
+    auto t1_wrap<T, Compare>::reduceViolations(const rank_t rank) -> num_t
     {
         const node_ptr_pair normal {this->pickNormalViolations(rank)};
         const node_ptr_pair t2sons {this->pickT2SonViolations(rank)};
@@ -2228,7 +2195,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::pickNormalViolations(const rank_t rank) -> node_ptr_pair
+    auto t1_wrap<T, Compare>::pickNormalViolations(const rank_t rank) -> node_ptr_pair
     {
         node_t* it {this->auxW[rank]};
 
@@ -2251,7 +2218,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::pickT2SonViolations(const rank_t rank) -> node_ptr_pair
+    auto t1_wrap<T, Compare>::pickT2SonViolations(const rank_t rank) -> node_ptr_pair
     {
         node_t* it {this->auxW[rank]};
 
@@ -2278,7 +2245,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::removeT2Violation(node_t* const node) -> num_t
+    auto t1_wrap<T, Compare>::removeT2Violation(node_t* const node) -> num_t
     {
         if (not node)
         {
@@ -2302,7 +2269,7 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::removeNormalViolations(node_t* const first, node_t* const second) -> num_t
+    auto t1_wrap<T, Compare>::removeNormalViolations(node_t* const first, node_t* const second) -> num_t
     {
         node_t* const n1 {first};
         node_t* const n2 {second ? second : n1->same_rank_sibling()};
@@ -2368,41 +2335,41 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T1RootWrap::swap(T1RootWrap & first, T1RootWrap & second) -> void
+    auto t1_wrap<T, Compare>::swap(t1_wrap & first, t1_wrap & second) -> void
     {
-        RootWrap::swap(first, second);
+        base_t::swap(first, second);
 
         using std::swap;
         swap(first.auxW, second.auxW);
         swap(first.violation, second.violation);
     }
 
-    // BrodalQueue::T2RootWrap implementation:
+// t2_wrap definition:
 
     template<class T, class Compare>
-    brodal_queue<T, Compare>::T2RootWrap::T2RootWrap(brodal_queue * const queue) :
-        RootWrap {queue}
+    t2_wrap<T, Compare>::t2_wrap(brodal_queue<T, Compare> * const queue) :
+        base_t {queue}
     {
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T2RootWrap::operator=(RootWrap && other) -> T2RootWrap &
+    auto t2_wrap<T, Compare>::operator=(root_wrap<T, Compare>&& other) -> t2_wrap &
     {
-        RootWrap::operator=(std::move(other));
+        base_t::operator=(std::move(other));
         return *this;
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T2RootWrap::operator=(T2RootWrap && other) -> T2RootWrap &
+    auto t2_wrap<T, Compare>::operator=(t2_wrap && other) -> t2_wrap &
     {
-        RootWrap::operator=(std::move(other));
+        base_t::operator=(std::move(other));
         return *this;
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T2RootWrap::addChild(node_t* const child) -> void
+    auto t2_wrap<T, Compare>::addChild(node_t* const child) -> void
     {
-        RootWrap::addChild(child);
+        base_t::addChild(child);
         if (child->is_violating())
         {
             this->queue->violations.push(child);
@@ -2410,18 +2377,18 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T2RootWrap::removeChild(node_t* const child) -> void
+    auto t2_wrap<T, Compare>::removeChild(node_t* const child) -> void
     {
         if (child->is_in_set())
         {
             this->queue->T1.removeViolation(child);
         }
 
-        RootWrap::removeChild(child);
+        base_t::removeChild(child);
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T2RootWrap::removeLargeSons() -> node_t*
+    auto t2_wrap<T, Compare>::removeLargeSons() -> node_t*
     {
         const rank_t newRootsRank {static_cast<rank_t>(this->root->rank_ - 1)};
         node_t* const ret {this->sons[this->root->rank_ - 1]};
@@ -2450,17 +2417,89 @@ namespace mix::ds
     }
 
     template<class T, class Compare>
-    auto brodal_queue<T, Compare>::T2RootWrap::swap(T2RootWrap & first, T2RootWrap & second) -> void
+    auto t2_wrap<T, Compare>::swap(t2_wrap & first, t2_wrap & second) -> void
     {
-        RootWrap::swap(first, second);
+        root_wrap<T, Compare>::swap(first, second);
     }
 
-    
+// upper_reducer definition:
 
-    
-    
+    template<class Reducible, class T, class Compare>
+    upper_reducer<Reducible, T, Compare>::upper_reducer
+        (Reducible* const root) :
+        managedRoot_ {root}
+    {
+    }
 
-    // BrodalQueue implementation:
+    template<class Reducible, class T, class Compare>
+    auto upper_reducer<Reducible, T, Compare>::reduce
+        (index_t i) -> void
+    {
+        managedRoot_->reduceUpper(i);
+    }
+
+    template<class Reducible, class T, class Compare>
+    auto upper_reducer<Reducible, T, Compare>::get_num
+        (index_t i) const -> num_t
+    {
+        auto const count = node_t::same_rank_count(managedRoot_->sons[i]);
+        return count < 6 ? 0 : count - 5;
+    }
+
+// lower_reducer definition:
+
+    template<class Reducible, class T, class Compare>
+    lower_reducer<Reducible, T, Compare>::lower_reducer
+        (Reducible* const root) :
+        managedRoot_ {root}
+    {
+    }
+
+    template<class Reducible, class T, class Compare>
+    auto lower_reducer<Reducible, T, Compare>::reduce
+        (index_t const i) -> void
+    {
+        managedRoot_->reduceLower(i);
+    }
+
+    template<class Reducible, class T, class Compare>
+    auto lower_reducer<Reducible, T, Compare>::get_num
+        (index_t const i) const -> num_t
+    {
+        auto const count = node_t::same_rank_count(managedRoot_->sons[i]);
+        return count >= 4 ? 0 : 4 - count;
+    }
+
+// violation_reducer definition:
+
+    template<class Reducible, class T, class Compare>
+    violation_reducer<Reducible, T, Compare>::violation_reducer
+        (Reducible* const root) :
+        managedRoot_ {root}
+    {
+    }
+
+    template<class Reducible, class T, class Compare>
+    auto violation_reducer<Reducible, T, Compare>::reduce
+        (index_t const i) -> void
+    {
+        managedRoot_->reduceViolation(i);
+    }
+
+    template<class Reducible, class T, class Compare>
+    auto violation_reducer<Reducible, T, Compare>::get_num
+        (index_t const i) const -> num_t
+    {
+        if (!managedRoot_->auxW[i]) 
+        {
+            return 0;
+        }
+
+        auto const count = node_t::same_rank_violation(managedRoot_->auxW[i]);
+        return count < 5 ? 0 : count - 4;
+    }
+
+// brodal_queue definition:
 
     template<class T, class Compare>
     brodal_queue<T, Compare>::brodal_queue(const brodal_queue & other) :
@@ -2880,12 +2919,8 @@ namespace mix::ds
     auto swap(brodal_queue<T, Compare> & first, brodal_queue<T, Compare> & second) noexcept -> void
     {
         std::swap(first.queueSize, second.queueSize);
-
-        using t1_wrap = typename brodal_queue<T, Compare>::T1RootWrap;
-        using t2_wrap = typename brodal_queue<T, Compare>::T2RootWrap;
-
-        t1_wrap::swap(first.T1, second.T1);
-        t2_wrap::swap(first.T2, second.T2);
+        t1_wrap<T, Compare>::swap(first.T1, second.T1);
+        t2_wrap<T, Compare>::swap(first.T2, second.T2);
     }
 
     template<class T, class Compare>
@@ -2956,7 +2991,7 @@ namespace mix::ds
         node_t* const leftFoldable  {rightFoldable->left_};
         oldt2->disconnect_sons();
         // Reset t2 wrap to defaults.
-        this->T2 = T2RootWrap {this};
+        this->T2 = t2_wrap {this};
 
         // Add sons with rank 0 under t1.
         node_t::fold_right(rightFoldable, [=](node_t* const n) {
@@ -3002,7 +3037,7 @@ namespace mix::ds
             this->T1.addChildChecked(oldt2);
 
             // Reset t2 wrap to defaults. 
-            this->T2 = T2RootWrap {this};
+            this->T2 = t2_wrap {this};
         }
         else
         {
