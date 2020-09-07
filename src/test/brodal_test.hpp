@@ -183,18 +183,18 @@ namespace mix::ds
 
     inline auto test_guide()
     {
-        auto t1 = guide_tester({2, 0, 1, 2, 0});
-        auto t2 = guide_tester(t1);
-        auto t3 = t2;
+        // auto t1 = guide_tester({2, 0, 1, 2, 0});
+        // auto t2 = guide_tester(t1);
+        // auto t3 = t2;
 
         // std::cout << guide_tester({0, 0, 0, 0}).guide_.to_string() << std::endl; 
         // std::cout << guide_tester({2, 0, 2, 0}).guide_.to_string() << std::endl; 
         // std::cout << guide_tester({2, 1, 0, 0}).guide_.to_string() << std::endl; 
         // std::cout << guide_tester({2, 1, 1, 0}).guide_.to_string() << std::endl; 
         
-        std::cout << t1.guide_.to_string() << std::endl; 
-        std::cout << t2.guide_.to_string() << std::endl; 
-        std::cout << t3.guide_.to_string() << std::endl; 
+        // std::cout << t1.guide_.to_string() << std::endl; 
+        // std::cout << t2.guide_.to_string() << std::endl; 
+        // std::cout << t3.guide_.to_string() << std::endl; 
 
         // guide_tester({2, 1, 1, 0, 0}).do_inc({4}).expect({1, 1, 1, 0, 0});
         // guide_tester({2, 1, 0, 2, 0}).do_inc({1}).expect({0, 1, 1, 1, 0});
@@ -203,10 +203,11 @@ namespace mix::ds
 
     inline auto real_test_brodal_queue()
     {
-        auto constexpr seed = 35785;
+        auto constexpr seed = 4513254654;
         auto constexpr n    = 2'000'000;
-        // auto constexpr n    = 500'000;
+        // auto constexpr n    = 1'000;
 
+        // queue_test_test<brodal_queue>(seed);
         // queue_test_insert<brodal_queue>(n, seed);
         // queue_test_delete<brodal_queue>(n, seed);
         // queue_test_decrease<brodal_queue>(n, seed);

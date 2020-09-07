@@ -369,16 +369,13 @@ namespace mix::ds
     {
         auto constexpr n = 20u;
 
-        using queue_t = TestedQueue<test_t, std::less<test_t>, Options...>;
-        auto queue    = queue_t();
-        auto rng      = make_rng<test_t>(0u, n, seed);
-        auto handles  = queue_insert_n(n, queue, rng);
-
-        while (!queue.empty())
-        {
-            std::cout << queue.find_min() << std::endl;
-            queue.delete_min();
-        }
+        using queue_t  = TestedQueue<test_t, std::less<test_t>, Options...>;
+        auto queue     = queue_t();
+        auto rng       = make_rng<test_t>(0u, n, seed);
+        auto handles   = queue_insert_n(n, queue, rng);
+        auto queueCopy = queue_t(queue);
+        
+        queue_test_delete(queueCopy);
     }
 }
 

@@ -62,9 +62,10 @@ auto test_brodal_queue()
     // test_queue();
     real_test_brodal_queue();
 
-    // test_dijkstra_to_point<pairing_heap>(2000, 657);
-    // test_dijkstra_to_point<boost_pairing_heap>(2000, 657);
-    // test_dijkstra_to_point<brodal_queue>(2000, 657);
+    // auto constexpr seed = 1212121;
+    // test_dijkstra_to_point<pairing_heap>(2000, seed);
+    // test_dijkstra_to_point<boost_pairing_heap>(2000, seed);
+    // test_dijkstra_to_point<brodal_queue>(2000, seed);
 }
 
 auto example_priority_queue()
