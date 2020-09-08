@@ -10,9 +10,9 @@
 auto test_pairing_heap()
 {
     using namespace mix::ds;
-    auto constexpr seed = 65468321; 
-    // auto constexpr n    = 5'000'000;
-    auto constexpr n    = 10'000;
+    auto constexpr seed = 54654564321; 
+    auto constexpr n    = 5'000'000;
+    // auto constexpr n    = 10'000;
 
     // queue_test_insert <pairing_heap, merge_modes::fifo_queue> (n, seed);
     // queue_test_insert <pairing_heap, merge_modes::two_pass>   (n, seed);
@@ -29,8 +29,8 @@ auto test_pairing_heap()
     // queue_test_erase <pairing_heap, merge_modes::two_pass>   (n, seed);
     // queue_test_erase <pairing_heap, merge_modes::fifo_queue> (n, seed);
 
-    // queue_test_random_all <pairing_heap, merge_modes::two_pass> (n, seed);
-    // queue_test_random_all <pairing_heap, merge_modes::fifo_queue> (n, seed);
+    queue_test_random_all <pairing_heap, merge_modes::two_pass> (n, seed);
+    queue_test_random_all <pairing_heap, merge_modes::fifo_queue> (n, seed);
 
     // queue_test_meld <pairing_heap, merge_modes::two_pass>   (n, seed);    
     // queue_test_meld <pairing_heap, merge_modes::fifo_queue> (n, seed);    
@@ -82,8 +82,8 @@ int main()
 {
     auto watch = mix::utils::stopwatch();
     
-    // test_pairing_heap();
-    test_simple_map();
+    test_pairing_heap();
+    // test_simple_map();
     // example_priority_queue();
 
     auto const elapsed = watch.elapsed_time().count();
