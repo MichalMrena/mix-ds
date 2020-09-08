@@ -10,10 +10,6 @@
 #include <functional>
 #include <algorithm>
 
-// TODO tmp
-#include <iterator>
-#include <iostream>
-
 namespace mix::ds
 {
     /**
@@ -124,9 +120,8 @@ namespace mix::ds
         using delinked_t = delinked_nodes<T, Compare, Allocator>;
 
     public:
-        brodal_node  (entry_t* entry);
-        brodal_node  (entry_t* entry, brodal_node const& other);
-        ~brodal_node ();
+        brodal_node (entry_t* entry);
+        brodal_node (entry_t* entry, brodal_node const& other);
         
         auto operator<         (node_t const& other) const -> bool;
         auto add_child         (node_t* const newChild)    -> void;
@@ -312,6 +307,9 @@ namespace mix::ds
         std::vector<node_t*> sons_;
     };
 
+    /**
+        Wrapper for the T1 tree.
+     */
     template<class T, class Compare, class Allocator>
     class t1_wrap : public root_wrap<t1_wrap<T, Compare, Allocator>, T, Compare, Allocator>
     {
@@ -379,6 +377,9 @@ namespace mix::ds
     auto swap ( t1_wrap<T, Compare, Allocator>& lhs 
               , t1_wrap<T, Compare, Allocator>& rhs ) noexcept -> void;
 
+    /**
+        Wrapper for the T2 tree.
+     */
     template<class T, class Compare, class Allocator>
     class t2_wrap : public root_wrap<t2_wrap<T, Compare, Allocator>, T, Compare, Allocator>
     {
@@ -523,12 +524,12 @@ namespace mix::ds
         auto active  () const -> tree_iterator_t const&; 
 
     private:
-        enum class active_it {first, second};
+        enum class active_it_e {first, second};
 
     private:
         tree_iterator_t  T1Iterator_;
         tree_iterator_t  T2Iterator_;
-        active_it        activeIterator_;
+        active_it_e      activeIterator_;
     };
 
     /**
@@ -550,11 +551,6 @@ namespace mix::ds
         entry_t* entry_;
     };    
     
-    // TODO nope
-    template<class T, class Compare, class Allocator>
-    auto meld(brodal_queue<T, Compare, Allocator>& first, 
-              brodal_queue<T, Compare, Allocator>& second) -> brodal_queue<T, Compare, Allocator>;
-
     /**
         Brodal queue.
      */
@@ -607,6 +603,7 @@ namespace mix::ds
         auto decrease_key (handle_t const handle)      -> void;
         auto decrease_key (iterator pos)               -> void;
         auto decrease_key (const_iterator pos)         -> void;
+        auto meld         (brodal_queue rhs)           -> brodal_queue&;
         auto erase        (handle_t const handle)      -> void;
         auto erase        (iterator pos)               -> void;
         auto erase        (const_iterator pos)         -> void;
@@ -622,8 +619,6 @@ namespace mix::ds
         auto cbegin       () const                     -> const_iterator;
         auto cend         () const                     -> const_iterator;
 
-        friend auto meld<T, Compare, Allocator>(brodal_queue & first, 
-                                     brodal_queue & second) -> brodal_queue;
     public:
         template<class... Args>
         auto new_node (Args&&... args) -> node_t*;
@@ -634,6 +629,9 @@ namespace mix::ds
         template<class Cmp = Compare>
         auto dec_key_impl (node_t* const node) -> void;
 
+        template<class RootWrap>
+        auto pick_T2 (RootWrap& wrap) -> void;
+
         auto delete_min_special   ()       -> void;
         auto add_extra_nodes      ()       -> void;
         auto add_violations       ()       -> void;
@@ -641,6 +639,8 @@ namespace mix::ds
         auto move_all_to_T1       ()       -> void;
         auto move_to_T1           ()       -> void;
         auto find_new_root        () const -> node_t*;
+        auto add_under_t1         (node_t*& root)             -> void;
+        auto add_under_t2         (node_t*& root)             -> void;
         auto shallow_copy_node    (node_t* const node)        -> node_t*;
         auto delete_node          (node_t* const node)        -> void;
         auto delete_entry         (entry_t* const entry)      -> void;
@@ -649,6 +649,7 @@ namespace mix::ds
         auto erase_impl           (node_t* const node)        -> void;
         auto make_son_of_root     (node_t* const newRoot)     -> void;
         auto merge_sets           (node_t* const newRoot)     -> void;
+        auto swallow              (brodal_queue& other)       -> brodal_queue&;
         auto shallow_copy_nodes   (brodal_queue const& other) -> node_map;
         auto deep_copy_tree       (node_map const& map)       -> void;
         auto deep_copy_violations (node_map const& map)       -> void;
@@ -674,6 +675,10 @@ namespace mix::ds
     template<class T, class Compare, class Allocator>
     auto swap( brodal_queue<T, Compare, Allocator>& first 
              , brodal_queue<T, Compare, Allocator>& second ) noexcept -> void;
+
+    template<class T, class Compare, class Allocator>
+    auto meld( brodal_queue<T, Compare, Allocator>& first 
+             , brodal_queue<T, Compare, Allocator>& second ) -> brodal_queue<T, Compare, Allocator>&;
 
     template<class T, class Compare, class Allocator>
     auto operator== ( brodal_queue<T, Compare, Allocator> const& lhs
@@ -1003,12 +1008,6 @@ namespace mix::ds
         setW_      {other.setW_},
         setV_      {other.setV_}
     {
-    }
-
-    template<class T, class Compare, class Allocator>
-    brodal_node<T, Compare, Allocator>::~brodal_node()
-    {
-        // brodal_node::fold_right(child_, [](auto const n) { delete n; });
     }
 
     template<class T, class Compare, class Allocator>
@@ -1626,7 +1625,7 @@ namespace mix::ds
         (node_t* const t1, node_t* const t2) :
         T1Iterator_     {t1},
         T2Iterator_     {t2},
-        activeIterator_ {active_it::first}
+        activeIterator_ {active_it_e::first}
     {
     }
 
@@ -1637,7 +1636,7 @@ namespace mix::ds
         ++this->active();
         if (tree_iterator_t {} == this->active())
         {
-            activeIterator_ = active_it::second;
+            activeIterator_ = active_it_e::second;
         }
 
         return *this;
@@ -1692,14 +1691,14 @@ namespace mix::ds
     auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::active
         () -> tree_iterator_t&
     {
-        return active_it::first == activeIterator_ ? T1Iterator_ : T2Iterator_;
+        return active_it_e::first == activeIterator_ ? T1Iterator_ : T2Iterator_;
     }
 
     template<class T, class Compare, class Allocator, bool IsConst>
     auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::active
         () const -> tree_iterator_t const&
     {
-        return active_it::first == activeIterator_ ? T1Iterator_ : T2Iterator_;
+        return active_it_e::first == activeIterator_ ? T1Iterator_ : T2Iterator_;
     }
 
 // brodal_entry_handle definition:
@@ -1762,6 +1761,7 @@ namespace mix::ds
     root_wrap<Tree, T, Compare, Allocator>::root_wrap
         (queue_t* queue, root_wrap&& other) noexcept:
         queue_ {queue},
+        root_  {std::exchange(other.root_, nullptr)},
         upper_ {up_reducer_t {this}, std::move(other.upper_)},
         lower_ {low_reducer_t {this}, std::move(other.lower_)},
         sons_  {std::move(other.sons_)}
@@ -1870,9 +1870,7 @@ namespace mix::ds
     auto root_wrap<Tree, T, Compare, Allocator>::release_root
         () -> node_t*
     {
-        auto const ret = root_;
-        root_ = nullptr;
-        return ret;
+        return std::exchange(root_, nullptr);
     }
 
     template<class Tree, class T, class Compare, class Allocator>
@@ -2731,7 +2729,7 @@ namespace mix::ds
     template<class T, class Compare, class Allocator>
     brodal_queue<T, Compare, Allocator>::brodal_queue
         (Allocator const& alloc) :
-        size_      {0},
+        size_           {0},
         T1_             {this},
         T2_             {this},
         nodeAllocator_  {alloc},
@@ -2742,7 +2740,7 @@ namespace mix::ds
     template<class T, class Compare, class Allocator>
     brodal_queue<T, Compare, Allocator>::brodal_queue
         (brodal_queue const& other) :
-        size_      {other.size_},
+        size_           {other.size_},
         T1_             {this, other.T1_},
         T2_             {this, other.T2_},
         nodeAllocator_  {other.nodeAllocator_},
@@ -2757,7 +2755,7 @@ namespace mix::ds
     template<class T, class Compare, class Allocator>
     brodal_queue<T, Compare, Allocator>::brodal_queue
         (brodal_queue&& other) noexcept :
-        size_      {std::exchange(other.size_, 0)},
+        size_           {std::exchange(other.size_, 0)},
         T1_             {this, std::move(other.T1_)},
         T2_             {this, std::move(other.T2_)},
         nodeAllocator_  {std::move(other.nodeAllocator_)},
@@ -2886,6 +2884,46 @@ namespace mix::ds
         (const_iterator pos) -> void
     {
         this->dec_key_impl(pos.current());
+    }
+
+    template<class T, class Compare, class Allocator>
+    auto brodal_queue<T, Compare, Allocator>::meld
+        (brodal_queue rhs) -> brodal_queue&
+    {
+        // First we solve some special cases.
+        if (rhs.size() < 4)
+        {
+            return this->swallow(rhs);
+        }
+
+        if (this->empty())
+        {
+            this->swap(rhs);
+            return *this;
+        }
+
+        size_ += rhs.size_;
+
+        // Here we make sure that this->T1 has the highest priority.
+        if (*rhs.T1_.root_ < *T1_.root_)
+        {
+            this->swap(rhs);
+        }
+
+        // If there is this->T2 it certainly has higher rank than this->T1.
+        // However other trees might not so we try to add them under t1 if possible.
+        this->add_under_t1(rhs.T1_.root_);
+        this->add_under_t1(rhs.T2_.root_);
+
+        // Now we try to pick new T2 from remaining trees.
+        this->pick_T2(rhs.T1_);
+        this->pick_T2(rhs.T2_);
+
+        // If some tree didn't fit into any of above cases it must be added under t2.
+        this->add_under_t2(rhs.T1_.root_);
+        this->add_under_t2(rhs.T2_.root_);
+
+        return *this;
     }
 
     template<class T, class Compare, class Allocator>
@@ -3183,6 +3221,27 @@ namespace mix::ds
     }
 
     template<class T, class Compare, class Allocator>
+    template<class RootWrap>
+    auto brodal_queue<T, Compare, Allocator>::pick_T2
+        (RootWrap& wrap) -> void
+    {
+        if (!wrap.root_)
+        {
+            return;
+        }
+
+        if (!T2_.root_)
+        {
+            T2_ = wrap;
+        }
+
+        if (T2_.root_->rank_ < wrap.root_->rank_)
+        {
+            swap(T2_, wrap);
+        }
+    }
+
+    template<class T, class Compare, class Allocator>
     auto brodal_queue<T, Compare, Allocator>::add_extra_nodes
         () -> void
     {
@@ -3356,6 +3415,49 @@ namespace mix::ds
     } 
 
     template<class T, class Compare, class Allocator>
+    auto brodal_queue<T, Compare, Allocator>::add_under_t1
+        (node_t*& node) -> void
+    {
+        if (!node)
+        {
+            return;
+        }
+
+        if (node->rank_ > T1_.root_->rank_)
+        {
+            return;
+        }
+
+        while (node->rank_ == T1_.root_->rank)
+        {
+            auto const delinked = node_t::delink_node(node);
+            T1_.add_delinked_nodes_checked(delinked);
+        }
+
+        T1_.add_child_checked(node);
+        node = nullptr;
+    }
+
+    template<class T, class Compare, class Allocator>
+    auto brodal_queue<T, Compare, Allocator>::add_under_t2
+        (node_t*& node) -> void
+    {
+        if (!node)
+        {
+            return;
+        }
+
+        while (node->rank_ == T2_.root_->rank)
+        {
+            auto const delinked = node_t::delink_node(node);
+            T2_.add_delinked_nodes_checked(delinked);
+        }
+
+        T2_.add_child_checked(node);
+        node = nullptr;
+    }
+
+    template<class T, class Compare, class Allocator>
     auto brodal_queue<T, Compare, Allocator>::make_son_of_root
         (node_t* const newRoot) -> void
     {
@@ -3405,6 +3507,23 @@ namespace mix::ds
         map.emplace(nullptr, nullptr);
 
         return map;
+    }
+
+    template<class T, class Compare, class Allocator>
+    auto brodal_queue<T, Compare, Allocator>::swallow
+        (brodal_queue& other) -> brodal_queue&
+    {
+        auto it  = std::begin(other);
+        auto end = std::end(other);
+
+        while (it != end)
+        {
+            this->insert_impl(it.current()->reset());
+            ++it;
+        }
+
+        other = brodal_queue();
+        return *this;
     }
 
     template<class T, class Compare, class Allocator>
@@ -3589,6 +3708,14 @@ namespace mix::ds
         , brodal_queue<T, Compare, Allocator>& second) noexcept -> void
     {
         first.swap(second);
+    }
+
+    template<class T, class Compare, class Allocator>
+    auto meld
+        ( brodal_queue<T, Compare, Allocator>& first
+        , brodal_queue<T, Compare, Allocator>& second) -> brodal_queue<T, Compare, Allocator>&
+    {
+        return first.meld(second);
     }
 
     template<class T, class Compare, class Allocator>

@@ -203,7 +203,7 @@ namespace mix::ds
 
     inline auto real_test_brodal_queue()
     {
-        auto constexpr seed = 4513254654;
+        auto constexpr seed = 54654555444;
         auto constexpr n    = 2'000'000;
         // auto constexpr n    = 1'000;
 

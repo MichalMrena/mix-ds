@@ -63,6 +63,12 @@ namespace mix::ds
         return hs;
     }
 
+    template<class Queue>
+    auto queue_test_size(Queue const& queue)
+    {
+        return queue.size() == real_size(queue);
+    }
+
     template<template<class, class...> class TestedQueue, class... Options>
     auto queue_test_insert(std::size_t const n, unsigned long const seed)
     {
@@ -313,6 +319,8 @@ namespace mix::ds
 
         auto queueCopy = queue_t(queue);
 
+        ASSERT(queue_test_size(queue), "Test all [internal test size]");
+        ASSERT(queue_test_size(queueCopy), "Test all [internal test size]");
         ASSERT(queue_test_delete(queue), "Test all [internal test delete]");
         ASSERT(queue_test_delete(queueCopy), "Test all [internal test delete]");
     }
@@ -369,13 +377,12 @@ namespace mix::ds
     {
         auto constexpr n = 20u;
 
+        auto rngSeed  = make_seeder(seed);
+        auto rngSmall = make_rng<test_t>(0, 1000, rngSeed);
+
         using queue_t  = TestedQueue<test_t, std::less<test_t>, Options...>;
         auto queue     = queue_t();
-        auto rng       = make_rng<test_t>(0u, n, seed);
-        auto handles   = queue_insert_n(n, queue, rng);
-        auto queueCopy = queue_t(queue);
-        
-        queue_test_delete(queueCopy);
+        queue_insert_n(1000, queue);
     }
 }
 
