@@ -3,6 +3,7 @@
 * [Data structures](#data-structures)
     - [Pairing heap](#pairing-heap)
     - [Simple map](#simple-map)
+    - [Brodal queue](#brodal-queue)
 * [Documentation](#documentation)
     - [Priority queue](#priority-queue)
     - [Table](#table)
@@ -21,6 +22,11 @@ Pairing heap is implemented in [Boost](https://www.boost.org/doc/libs/1_73_0/doc
 
 ## Simple map
 Simple map is a container adapter which takes a container *(`std::vector` by default)* and turns it into a map. It might be useful when you need a map semantics but you are only working with very small amount of data. In that case simple vector might perform better than sophisticated structures like red-black tree or hash table.
+
+## Brodal queue
+[Brodal queue](https://en.wikipedia.org/wiki/Brodal_queue) is an implementation of priority queue with best possible [worst case](https://en.wikipedia.org/wiki/Best,_worst_and_average_case) complexities of its operations. TODO...
+
+[Fibonacci heap](https://en.wikipedia.org/wiki/Fibonacci_heap)
 
 # Documentation
 Naming conventions and interfaces are almost identical to STL. Each structure also satisfies [Container](https://en.cppreference.com/w/cpp/named_req/Container) named requirements. If you are familiar with [STL containers](https://en.cppreference.com/w/cpp/container) using these structures should be easy.  

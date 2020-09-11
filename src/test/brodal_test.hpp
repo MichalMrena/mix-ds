@@ -212,7 +212,8 @@ namespace mix::ds
         // queue_test_delete<brodal_queue>(n, seed);
         // queue_test_decrease<brodal_queue>(n, seed);
         // queue_test_other<brodal_queue>(n, seed);
-        queue_test_random_all<brodal_queue>(n, seed);
+        // queue_test_random_all<brodal_queue>(n, seed);
+        queue_test_test<brodal_queue>(seed);
         // queue_test_random_all<pairing_heap>(n, seed);
         // queue_test_random_all<boost_pairing_heap>(n, seed);
     }

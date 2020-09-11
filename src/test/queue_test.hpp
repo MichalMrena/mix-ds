@@ -375,14 +375,30 @@ namespace mix::ds
     template<template<class, class...> class TestedQueue, class... Options>
     auto queue_test_test(unsigned long const seed)
     {
+        using queue_t  = TestedQueue<test_t, std::less<test_t>, Options...>;
         auto constexpr n = 20u;
 
-        auto rngSeed  = make_seeder(seed);
-        auto rngSmall = make_rng<test_t>(0, 1000, rngSeed);
+        auto rngSeed    = make_seeder(seed);
+        auto rngLow     = make_rng<test_t>(0, 19'000, rngSeed.next_int());
+        auto rngHigh    = make_rng<test_t>(20'000, 1'000'000, rngSeed.next_int());
+        auto queueSmall1 = queue_t();
+        auto queueBig1   = queue_t();
+        auto queueSmall2 = queue_t();
+        auto queueBig2   = queue_t();
 
-        using queue_t  = TestedQueue<test_t, std::less<test_t>, Options...>;
-        auto queue     = queue_t();
-        queue_insert_n(1000, queue);
+        queue_insert_n(1'000, queueSmall1, rngLow);
+        queue_insert_n(10'000, queueBig1, rngHigh);
+        queue_insert_n(1'000, queueSmall2, rngLow);
+        queue_insert_n(5'000, queueBig2, rngHigh);
+
+        auto queueMelded1 = meld(queueSmall1, queueBig1);
+        auto queueMelded2 = meld(queueSmall2, queueBig2);
+        auto queueMelded3 = meld(queueMelded2, queueMelded1);
+
+        // ASSERT(queue_test_delete(queueMelded1), "Test meld.");
+        // ASSERT(queue_test_delete(queueMelded2), "Test meld.");
+        ASSERT(queue_test_size(queueMelded3), "Test size.");
+        ASSERT(queue_test_delete(queueMelded3), "Test meld.");
     }
 }
 
