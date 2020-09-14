@@ -203,17 +203,17 @@ namespace mix::ds
 
     inline auto real_test_brodal_queue()
     {
-        auto constexpr seed = 54654555444;
-        auto constexpr n    = 2'000'000;
-        // auto constexpr n    = 1'000;
+        auto constexpr seed = 5487444552;
+        // auto constexpr n    = 2'000'000;
+        auto constexpr n    = 1'000;
 
         // queue_test_test<brodal_queue>(seed);
         // queue_test_insert<brodal_queue>(n, seed);
         // queue_test_delete<brodal_queue>(n, seed);
         // queue_test_decrease<brodal_queue>(n, seed);
         // queue_test_other<brodal_queue>(n, seed);
-        // queue_test_random_all<brodal_queue>(n, seed);
-        queue_test_test<brodal_queue>(seed);
+        queue_test_random_all<brodal_queue>(n, seed);
+        // queue_test_test<brodal_queue>(seed);
         // queue_test_random_all<pairing_heap>(n, seed);
         // queue_test_random_all<boost_pairing_heap>(n, seed);
     }

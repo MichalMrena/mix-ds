@@ -43,7 +43,7 @@ namespace mix::ds
 
         auto to_string () const -> std::string;
 
-    public:
+    private:
         auto inc_in_block           (index_t const i) -> void;
         auto inc_out_block          (index_t const i) -> void;
         auto cancel_block           (index_t const i) -> void;
@@ -53,10 +53,11 @@ namespace mix::ds
         auto is_valid_non_block_num (num_t const num) -> bool;
         auto is_valid_block_num     (num_t const num, index_t const i) -> bool;
 
-    public:
+    private:
         inline static constexpr auto NULL_BLOCK = std::numeric_limits<index_t>::max();
+        template<class> friend class guide;
 
-    public:
+    private:
         Reducer  reducer_;
         blocks_v blocks_;
     };
@@ -93,16 +94,13 @@ namespace mix::ds
     class brodal_entry
     {
     public:
-        using node_t = brodal_node<T, Compare, Allocator>;
-
-    public:
         template<class... Args>
-        brodal_entry (Args&&... args);
-
+        brodal_entry   (Args&&... args);
         auto operator* ()       -> T&;
         auto operator* () const -> T const&;
 
     public:
+        using node_t = brodal_node<T, Compare, Allocator>;
         T       data_;
         node_t* node_;
     };
@@ -508,7 +506,8 @@ namespace mix::ds
         auto operator-> ()       -> T*;
         auto operator-> () const -> T const*;
 
-    public:
+    private:
+        friend class brodal_queue<T, Compare, Allocator>;
         using entry_t = brodal_entry<T, Compare, Allocator>;
         brodal_entry_handle(entry_t* const node);
         entry_t* entry_;
@@ -530,22 +529,6 @@ namespace mix::ds
         using difference_type = std::ptrdiff_t;
         using size_type       = std::size_t;
         using handle_t        = brodal_entry_handle<T, Compare, Allocator>;
-        
-        using num_t              = std::uint8_t;
-        using index_t            = std::uint8_t;
-        using rank_t             = index_t;
-        using node_t             = brodal_node<T, Compare, Allocator>;
-        using entry_t            = brodal_entry<T, Compare, Allocator>;
-        using type_alloc_traits  = std::allocator_traits<Allocator>;
-        using entry_alloc_traits = typename type_alloc_traits::template rebind_traits<entry_t>;
-        using node_alloc_traits  = typename type_alloc_traits::template rebind_traits<node_t>;
-        using node_alloc_t       = typename type_alloc_traits::template rebind_alloc<node_t>;
-        using entry_alloc_t      = typename type_alloc_traits::template rebind_alloc<entry_t>;
-        using node_map           = std::unordered_map<node_t const*, node_t*>;
-        using node_ptr_pair      = std::pair<node_t*, node_t*>;
-        using node_stack_t       = std::stack<node_t*>;
-        using t1_wrap_t          = t1_wrap<T, Compare, Allocator>;
-        using t2_wrap_t          = t2_wrap<T, Compare, Allocator>;
 
     public:
         brodal_queue  (Allocator const& alloc = Allocator());
@@ -581,7 +564,24 @@ namespace mix::ds
         auto cbegin       () const                     -> const_iterator;
         auto cend         () const                     -> const_iterator;
 
-    public:
+    private:
+        using num_t              = std::uint8_t;
+        using index_t            = std::uint8_t;
+        using rank_t             = index_t;
+        using node_t             = brodal_node<T, Compare, Allocator>;
+        using entry_t            = brodal_entry<T, Compare, Allocator>;
+        using type_alloc_traits  = std::allocator_traits<Allocator>;
+        using entry_alloc_traits = typename type_alloc_traits::template rebind_traits<entry_t>;
+        using node_alloc_traits  = typename type_alloc_traits::template rebind_traits<node_t>;
+        using node_alloc_t       = typename type_alloc_traits::template rebind_alloc<node_t>;
+        using entry_alloc_t      = typename type_alloc_traits::template rebind_alloc<entry_t>;
+        using node_map           = std::unordered_map<node_t const*, node_t*>;
+        using node_ptr_pair      = std::pair<node_t*, node_t*>;
+        using node_stack_t       = std::stack<node_t*>;
+        using t1_wrap_t          = t1_wrap<T, Compare, Allocator>;
+        using t2_wrap_t          = t2_wrap<T, Compare, Allocator>;
+
+    private:
         template<class... Args>
         auto new_node (Args&&... args) -> node_t*;
         
@@ -617,7 +617,13 @@ namespace mix::ds
         auto deep_copy_violations (node_map const& map)       -> void;
         auto deep_copy_wraps      (brodal_queue const& other, node_map const& map) -> void;
 
-    public:
+    private:
+        friend class root_wrap<t1_wrap_t, T, Compare, Allocator>;
+        friend class root_wrap<t2_wrap_t, T, Compare, Allocator>;
+        friend class t1_wrap<T, Compare, Allocator>;
+        friend class t2_wrap<T, Compare, Allocator>;
+
+    private:
         std::size_t   size_;
         t1_wrap_t     T1_;
         t2_wrap_t     T2_;
@@ -1533,7 +1539,6 @@ namespace mix::ds
     auto brodal_tree_iterator<T, Compare, Allocator>::operator++
         () -> brodal_tree_iterator&
     {
-        // TODO foldr
         auto next = stack_.top()->child_;
         stack_.pop();
         while (next)
