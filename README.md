@@ -3,6 +3,7 @@
 * [Data structures](#data-structures)
     - [Pairing heap](#pairing-heap)
     - [Simple map](#simple-map)
+    - [Brodal queue](#brodal-queue)
 * [Documentation](#documentation)
     - [Priority queue](#priority-queue)
     - [Table](#table)
@@ -16,11 +17,15 @@ This is a small data structure library for C++. Some structures are useful in pr
 
 # Data structures
 ## Pairing heap
-Pairing heap is simple and efficient implementation of the [priority queue](https://en.wikipedia.org/wiki/Priority_queue). It performs very well in [Discrete-event simulation](https://en.wikipedia.org/wiki/Discrete-event_simulation). You can read a formal description on the [Wikipedia](https://en.wikipedia.org/wiki/Pairing_heap) , in the [original paper](https://www.cs.cmu.edu/~sleator/papers/pairing-heaps.pdf) and on many other places on the [internet](https://www.google.com/search?q=pairing+heap&oq=pairing+heap). We are not gonna repeat that here.  
+Pairing heap is simple and efficient implementation of the [priority queue](https://en.wikipedia.org/wiki/Priority_queue). It performs very well in [Discrete-event simulation](https://en.wikipedia.org/wiki/Discrete-event_simulation). You can read the formal description on [Wikipedia](https://en.wikipedia.org/wiki/Pairing_heap) , in the [original paper](https://www.cs.cmu.edu/~sleator/papers/pairing-heaps.pdf) and on many other places on the [internet](https://www.google.com/search?q=pairing+heap&oq=pairing+heap). We are not gonna repeat that here.  
 Pairing heap is implemented in [Boost](https://www.boost.org/doc/libs/1_73_0/doc/html/boost/heap/pairing_heap.html) and you will probably find many other implementations but some of them are naive or not generic. Our implementation is a generic, allocator-aware and recursion-free container. We use a binary tree to represent the heap and we also support two *merge modes* => two pass merge *(default)* and fifo queue. It can be specified by a template parameter.
 
 ## Simple map
 Simple map is a container adapter which takes a container *(`std::vector` by default)* and turns it into a map. It might be useful when you need a map semantics but you are only working with very small amount of data. In that case simple vector might perform better than sophisticated structures like red-black tree or hash table.
+
+## Brodal queue
+[Brodal queue](https://en.wikipedia.org/wiki/Brodal_queue) is an implementation of priority queue with best possible [worst case](https://en.wikipedia.org/wiki/Best,_worst_and_average_case) complexities of its operations. These complexities are the same as [Fibonacci heap](https://en.wikipedia.org/wiki/Fibonacci_heap) has, but without amortization involved. This is one of the data structures that is interesting in theory, because big-O notation hides a big constant factors. Therefore, despite having constant complexities, it probably doesn't perform better than traditional queues like [binary heap](https://en.wikipedia.org/wiki/Binary_heap). This assumption was partially proven experimentally in our [paper](https://ieeexplore.ieee.org/document/8813457). On the other hand, the experiment shows that there could be a class of problems in which the Brodal queue *(or other advance implementation)* could outperform basic ones. This topic remains open for our future research.  
+Structure of the queue is quite complicated and relatively memory demanding. Its detailed description can be found in the [original paper](https://www.cs.au.dk/~gerth/papers/soda96.pdf). We have implemented the structure according to this paper. Brodal queue has been further improved in [this](https://arxiv.org/abs/1112.0993) paper. We hope to provide an implementation of this structure in this library in the future.
 
 # Documentation
 Naming conventions and interfaces are almost identical to STL. Each structure also satisfies [Container](https://en.cppreference.com/w/cpp/named_req/Container) named requirements. If you are familiar with [STL containers](https://en.cppreference.com/w/cpp/container) using these structures should be easy.  
@@ -53,7 +58,7 @@ auto cend     () const -> const_iterator;   // 8.
 ```
 1. Returns reference to the element with the highest priority. 
 2. Returns const reference to the element with the highest priority.
-3. ... 4. Whole structure is iterable. However be careful not to change a priority of some element. It would cause undefined behaviour.
+3. ... 4. Whole structure is iterable. However be careful not to change a priority of some element. It would cause undefined behavior.
 
 ### Element removal
 ```C++
@@ -117,7 +122,7 @@ for (auto i : heap)
 
 ## Table
 First thing we need to clarify is that map stores keys and elements inside `std::pair<const Key, Value>`. Notice that the key is always `const` whether you specify it or not.  
-For our examples we will use this simple `struct person` as a value type and `int` as a key type. `person` declared like this is [aggregate](https://en.cppreference.com/w/cpp/language/aggregate_initialization). Prior to `C++20` this struct would need to have a constructor that initializes its fields in order to use `emplace` and similar functions metioned below. `C++20` made som changes that are beyond the scope of this example. All we need to know is that in `C++20` we can also use `()` for unifrom initialization *(but there is still a difference between `()` and `{}`)* and our `person` doesn't need a constructor.
+For our examples we will use this simple `struct person` as a value type and `int` as a key type. `person` declared like this is [aggregate](https://en.cppreference.com/w/cpp/language/aggregate_initialization). Prior to `C++20` this struct would need to have a constructor that initializes its fields in order to use `emplace` and similar functions mentioned below. `C++20` made som changes that are beyond the scope of this example. All we need to know is that in `C++20` we can also use `()` for uniform initialization *(but there is still a difference between `()` and `{}`)* and our `person` doesn't need a constructor.
 ```C++
 struct person
 {
@@ -140,7 +145,7 @@ personMap.insert( std::make_pair(3, person {80, "Teal'c"}) ); // 3.
 ```
 1. New pair in the map will be copy constructed from p.
 2. New pair in the map will be move constructed from the temporary.
-3. `std::make_pair` returns a `std::pair<int, person>` wich is a different type than `std::pair<const int, person>`. However, insert has an overload which takes anything from which a `std::pair<const int, person>` can be [constructed from](https://en.cppreference.com/w/cpp/utility/pair/pair) so in this case the new pair will be memberwise move constructed from the temporary pair.
+3. `std::make_pair` returns a `std::pair<int, person>` which is a different type than `std::pair<const int, person>`. However, insert has an overload which takes anything from which a `std::pair<const int, person>` can be [constructed from](https://en.cppreference.com/w/cpp/utility/pair/pair) so in this case the new pair will be member-wise move constructed from the temporary pair.
 
 We can avoid creating a temporary pair by using `emplace` which enables us to construct the new pair directly *in* the map. 
 ```C++
@@ -152,7 +157,7 @@ personMap.emplace( std::piecewise_construct
 1. New pair will be constructed in place using given arguments. Note that person will still be move constructed and not constructed in place.
 2. New pair and its members will be constructed in place using given arguments. This solution is however bit more verbose so it is up to you to consider whether its worth to do it in order to avoid the move which is usually cheap.
 
-One disadvatage of `emplace` is that it always creates a new pair (in order to have access to the key) and in case there already is an element associated with given key it discards that pair. That is why C++17 introduced `try_emplace`.
+One disadvantage of `emplace` is that it always creates a new pair (in order to have access to the key) and in case there already is an element associated with given key it discards that pair. That is why C++17 introduced `try_emplace`.
 ```C++
 personMap.try_emplace(4, 32, "Samantha"); // 1.
 personMap.try_emplace(6, 28, "Jonas");    // 2.
@@ -166,7 +171,7 @@ personMap[7] = person(40, "Cameron"); // 1.
 ```
 1. Since there is no element associated with key `7` first a new pair is created. The key is copy/move constructed from the given key and the value is [value-initialized](https://en.cppreference.com/w/cpp/language/value_initialization) (person will look like this {.age = 0, .name = ""}).  
 
-Behaviour of `operator[]` is useful when you don't know whether there is an element associated with given key and in case there is you want to assign new value to it. Disadvantage of this approach is that if insertion is performed an *empty* element is first constructed and then assigned with actual value. That is why C++17 introduced `insert_or_assign` which does exactly what it says it does and unlike `operator[]` it does not create temporary *empty* value.
+Behavior of `operator[]` is useful when you don't know whether there is an element associated with given key and in case there is you want to assign new value to it. Disadvantage of this approach is that if insertion is performed an *empty* element is first constructed and then assigned with actual value. That is why C++17 introduced `insert_or_assign` which does exactly what it says it does and unlike `operator[]` it does not create temporary *empty* value.
 ```C++
 personMap.insert_or_assign(7, person(43, "Cameron")); // 1.
 personMap.insert_or_assign(8, person(33, "Vala"));    // 2.
@@ -197,13 +202,22 @@ personMap.erase(9);        // 2.
 1. Removes pair associated with given iterator.
 2. Removes pair (if there is one) associated with given key.
 
-#### Recomendations
+#### Recommendations
 * use `emplace` or `try_emplace` for insertion
 * use `at` or `find` for element access
-* use `insert_or_assign` over `operator[]` unless you need the exact behaviour of `operator[]`
+* use `insert_or_assign` over `operator[]` unless you need the exact behavior of `operator[]`
 
 # Comparison
-Some structures in this library are also implemented in other libraries. In this comparison we want to show that our structures are comparable with high quality libraries as Boost. In the test we have performed series of random operations (insertions, deletions, ...) on the particular structure that contained millions of elements. This of course doesn't necessarily simulate practical usage. Numbers in the table show the time it took finish the test. 
+Some structures in this library are also implemented in other libraries. In this comparison we want to show that our structures are comparable with high quality libraries as Boost. It is not our intention to show which one "is better". Numbers in table below show relative speed of data structure compared to one with the best result in given experiment.  
+
+## Random operations
+In this experiment we have performed uniformly distributed random operations *(insert, delete_min, erase, decrease_key)* on a queue with millions of elements in it. 
 | Structure    | mix-ds [ms] | Boost [ms] |
 |--------------|-------------|------------|
-| pairing_heap |    13347    |    21050   |
+| pairing_heap |      1      |    1.58    |
+
+## Dijkstra's algorithm
+Previous experiment does not necessarily mimics practical usage so we have also tested queues in the well-known use case - [Dijkstra's algorithm](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm). We have used New York City road network [graph](http://users.diag.uniroma1.it/challenge9/download.shtml). In this graph we have found 2000 shortest paths from random point to random point.
+| Structure    | mix-ds [ms] | Boost [ms] |
+|--------------|-------------|------------|
+| pairing_heap |    1        |    1.20    |

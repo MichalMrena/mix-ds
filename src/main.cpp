@@ -1,11 +1,15 @@
 #include "lib/pairing_heap.hpp"
 #include "lib/simple_map.hpp"
+#include "lib/brodal_queue.hpp"
 #include "test/queue_test.hpp"
 #include "test/map_test.hpp"
+#include "test/brodal_test.hpp"
 #include "utils/stopwatch.hpp"
 #include "compare/boost_pairing_heap.hpp"
+#include "compare/dijkstra.hpp"
 
 #include <map>
+#include <iomanip>
 
 auto test_pairing_heap()
 {
@@ -38,7 +42,7 @@ auto test_pairing_heap()
     // queue_test_other <pairing_heap, merge_modes::two_pass>   (n, seed);    
     // queue_test_other <pairing_heap, merge_modes::fifo_queue> (n, seed);
 
-    queue_test_random_all <boost_pairing_heap> (n, seed);
+    // queue_test_random_all <boost_pairing_heap> (n, seed);
 }
 
 auto test_simple_map()
@@ -49,6 +53,19 @@ auto test_simple_map()
 
     map_test_find_erase<simple_map>(n, seed);
     map_test_insert<simple_map>(n, seed);
+}
+
+auto test_brodal_queue()
+{
+    using namespace mix::ds;
+    // test_guide();
+    // test_queue();
+    real_test_brodal_queue();
+
+    // auto constexpr seed = 1212121;
+    // test_dijkstra_to_point<pairing_heap>(2000, seed);
+    // test_dijkstra_to_point<boost_pairing_heap>(2000, seed);
+    // test_dijkstra_to_point<brodal_queue>(2000, seed);
 }
 
 auto example_priority_queue()
@@ -80,11 +97,14 @@ auto example_priority_queue()
 
 int main()
 {
+    using namespace mix::ds;
+
     auto watch = mix::utils::stopwatch();
     
-    test_pairing_heap();
-    // test_simple_map();
+    // test_pairing_heap();
+    // test_baseline_map();
     // example_priority_queue();
+    test_brodal_queue();
 
     auto const elapsed = watch.elapsed_time().count();
     std::cout << "Time taken " << elapsed << " ms" << std::endl;

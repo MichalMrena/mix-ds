@@ -26,7 +26,9 @@ namespace mix::ds
         boost_heap_t heap_;
 
     public:
-        using handle_t = typename boost_heap_t::handle_type;
+        using handle_t       = typename boost_heap_t::handle_type;
+        using iterator       = typename boost_heap_t::iterator;
+        using const_iterator = typename boost_heap_t::const_iterator;
 
     public:
         auto insert (T const& t) -> handle_t
@@ -62,6 +64,26 @@ namespace mix::ds
         auto size () const -> std::size_t
         {
             return heap_.size();
+        }
+
+        auto begin () -> iterator
+        {
+            return heap_.begin();
+        }
+
+        auto end () -> iterator
+        {
+            return heap_.end();
+        }
+
+        auto begin () const -> const_iterator
+        {
+            return heap_.begin();
+        }
+
+        auto end () const -> const_iterator
+        {
+            return heap_.end();
         }
     };
 }
