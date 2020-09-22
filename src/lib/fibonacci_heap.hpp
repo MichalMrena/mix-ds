@@ -6,6 +6,8 @@
 #include <stack>
 #include <memory>
 #include <limits>
+#include <unordered_map>
+#include <cmath>
 
 namespace mix::ds
 {
@@ -17,31 +19,29 @@ namespace mix::ds
     {
     public:
         using rank_t = unsigned int;
-        using node_t = fib_node<T>;
+        using node_t = fib_node<T, Compare, Allocator>;
 
     public:
         template<class... Args>
         fib_node (std::piecewise_construct_t, Args&&... args);
-        
+
         auto operator* ()       -> T&;
         auto operator* () const -> T const&;
-        auto operator< (node_t const& other) const -> bool;
 
         auto add_child           (node_t* node) -> void;
         auto remove_child        (node_t* node) -> void;
         auto disconnect_children ()             -> node_t*;
-        auto start_cycled_list   ()             -> void;
-        auto is_violating        () const       -> bool;
+        auto to_looped_list      ()             -> void;
         auto is_last_in_list     () const       -> bool;
         auto is_root             () const       -> bool;
         auto is_not_root         () const       -> bool;
 
         static auto merge_roots      (node_t* first, node_t* second) -> node_t*;
         static auto merge_lists      (node_t* first, node_t* second) -> node_t*;
-        static auto remove_from_list (node_t * node)    -> void;
+        static auto remove_from_list (node_t* node) -> void;
 
         template<class UnaryFunction>
-        static auto fold_list (node_t * node, UnaryFunction f) -> void;
+        static auto fold_list (node_t* node, UnaryFunction f) -> void;
 
     public:
         rank_t  rank_;
@@ -54,13 +54,21 @@ namespace mix::ds
     };
 
     /**
+        Fibonacci heap forward declaration.
+     */
+    template< class T
+            , class Compare   = std::less<T>
+            , class Allocator = std::allocator<T>>
+    class fibonacci_heap;
+
+    /**
         Fibonacci tree iterator.
      */
     template<class T, class Compare, class Allocator, bool IsConst>
     class fib_heap_iterator
     {
     public:
-        using node_t            = fib_node<T, Compare, Allocator>
+        using node_t            = fib_node<T, Compare, Allocator>;
         using difference_type   = std::ptrdiff_t;
         using value_type        = std::conditional_t<IsConst, T const, T>;
         using pointer           = value_type*;
@@ -83,6 +91,7 @@ namespace mix::ds
         auto operator++ (int)    -> fib_heap_iterator;
 
     private:
+        friend class fibonacci_heap<T, Compare, Allocator>;
         auto current () const -> node_t*;
 
     private:
@@ -92,14 +101,6 @@ namespace mix::ds
     template<class T, class Compare, class Allocator, bool IsConst>
     auto swap ( fib_heap_iterator<T, Compare, Allocator, IsConst>& lhs
               , fib_heap_iterator<T, Compare, Allocator, IsConst>& rhs ) noexcept -> void;
-
-    /**
-        Fibonacci heap forward declaration.
-     */
-    template< class T
-            , class Compare   = std::less<T>
-            , class Allocator = std::allocator<T>>
-    class fibonacci_heap;
 
     /**
         Node handle that is returned after an insertion
@@ -132,8 +133,8 @@ namespace mix::ds
         using pointer           = T*;
         using reference         = T&;
         using const_reference   = T const&;
-        using iterator          = fib_heap_iterator<T, Compare, false>;
-        using const_iterator    = fib_heap_iterator<T, Compare, true>;
+        using iterator          = fib_heap_iterator<T, Compare, Allocator, false>;
+        using const_iterator    = fib_heap_iterator<T, Compare, Allocator, true>;
         using difference_type   = std::ptrdiff_t;
         using size_type         = std::size_t;
         using node_t            = fib_node<T, Compare, Allocator>;
@@ -142,14 +143,15 @@ namespace mix::ds
         using type_alloc_traits = std::allocator_traits<Allocator>;
         using node_alloc_traits = typename type_alloc_traits::template rebind_traits<node_t>;
         using node_allocator    = typename type_alloc_traits::template rebind_alloc<node_t>;
+        using node_map          = std::unordered_map<node_t const*, node_t*>;
 
     public:
         fibonacci_heap  (Allocator const& alloc = Allocator());
         fibonacci_heap  (fibonacci_heap const& other);
-        fibonacci_heap  (fibonacci_heap && other) noexcept;
+        fibonacci_heap  (fibonacci_heap&& other) noexcept;
         ~fibonacci_heap ();
 
-        auto operator=(fibonacci_heap other) noexcept -> fibonacci_heap&;
+        auto operator= (fibonacci_heap other) noexcept -> fibonacci_heap&;
 
         template<class... Args>
         auto emplace      (Args&&... args)               -> handle_t;
@@ -161,7 +163,6 @@ namespace mix::ds
         auto decrease_key (handle_t const handle)        -> void;
         auto decrease_key (iterator pos)                 -> void;
         auto decrease_key (const_iterator pos)           -> void;
-        auto increase_key (handle_t const handle)        -> void;
         auto meld         (fibonacci_heap rhs)           -> fibonacci_heap&;
         auto erase        (handle_t const handle)        -> void;
         auto erase        (iterator pos)                 -> void;
@@ -185,10 +186,13 @@ namespace mix::ds
         template<class... Args>
         auto new_node_impl (Args&&... args) -> node_t*;
 
-        template<class Cmp>
-        auto decrease_key_impl (node_t* const node) -> void;
+        template<class NodeOp>
+        auto for_each_node (NodeOp op) const -> void;
 
         auto deep_copy         (fibonacci_heap const& other) -> node_t*;
+        auto shallow_copy      (fibonacci_heap const& other) -> node_map;
+        auto erase_impl        (node_t* const node)          -> void;
+        auto decrease_key_impl (node_t* const node)          -> void;
         auto insert_impl       (node_t* const node)          -> handle_t;
         auto copy_node         (node_t* const node)          -> node_t*;
         auto delete_node       (node_t* const node)          -> void;
@@ -198,13 +202,12 @@ namespace mix::ds
         auto max_possible_rank () const -> rank_t;
 
     private:
-        inline static constexpr auto PHI {1.61803398875};
+        inline static constexpr auto PHI = 1.61803398875;
 
     private:
         node_allocator alloc_;
         node_t*        root_;
         size_t         size_;
-
     };
 
     template<class T, class Compare, class Allocator>
@@ -254,28 +257,12 @@ namespace mix::ds
     }
 
     template<class T, class Compare, class Allocator>
-    auto fib_node<T, Compare, Allocator>::operator<
-        (node_t const& other) const -> bool
-    {
-        return Compare () (**this, *other);
-    }
-
-    template<class T, class Compare, class Allocator>
     auto fib_node<T, Compare, Allocator>::add_child
         (node_t* node) -> void
     {
-        newChild->parent_ = this;
-        newChild->start_cycled_list();
-
-        if (child_)
-        {
-            node_t::merge_lists(child_, node);
-        }
-        else
-        {
-            child_ = node;
-        }
-
+        node->parent_ = this;
+        node->to_looped_list();
+        child_ = child_ ? node_t::merge_lists(child_, node) : node;
         ++rank_;
     }
 
@@ -284,60 +271,42 @@ namespace mix::ds
         (node_t* node) -> void
     {
         node->parent_ = nullptr;
-        
+        child_        = node->right_;
+        --rank_;
+
         if (node->is_last_in_list())
         {
             child_ = nullptr;
         }
-        else if (node == child_)
-        {
-            child_ = child_->right_;
-        }
-        
         node_t::remove_from_list(node);
-        
-        --rank_;
-        oldChild->mark_ = false;
-        
-        if (this->is_not_root())
-        {
-            mark_ = true;
-        }
+
+        // node->mark_ = false;
+
+        // if (this->is_not_root())
+        // {
+        //     mark_ = true;
+        // }
     }
 
     template<class T, class Compare, class Allocator>
     auto fib_node<T, Compare, Allocator>::disconnect_children
         () -> node_t*
     {
-        if (!child_)
-        {
-            return nullptr;
-        }
-
         node_t::fold_list(child_, [](auto const n)
         {
             n->parent_ = nullptr;
         });
-        auto ret = child_;
-        child_   = nullptr;
-        rank_    = 0;
-        
-        return ret;
+
+        rank_ = 0;
+        return std::exchange(child_, nullptr);
     }
 
     template<class T, class Compare, class Allocator>
-    auto fib_node<T, Compare, Allocator>::start_cycled_list
+    auto fib_node<T, Compare, Allocator>::to_looped_list
         () -> void
     {
         left_  = this;
         right_ = this;
-    }
-
-    template<class T, class Compare, class Allocator>
-    auto fib_node<T, Compare, Allocator>::is_violating
-        () const -> bool
-    {
-        return parent_ && *this < *parent_;
     }
 
     template<class T, class Compare, class Allocator>
@@ -351,25 +320,25 @@ namespace mix::ds
     auto fib_node<T, Compare, Allocator>::is_root
         () const -> bool
     {
-        return parent_;
+        return !parent_;
     }
 
     template<class T, class Compare, class Allocator>
     auto fib_node<T, Compare, Allocator>::is_not_root
         () const -> bool
     {
-        return !parent_;
+        return !this->is_root();
     }
 
     template<class T, class Compare, class Allocator>
     auto fib_node<T, Compare, Allocator>::merge_roots
         (node_t* first, node_t* second) -> node_t*
     {
-        if (*second < *first)
+        if (Compare () (**second, **first))
         {
             std::swap(first, second);
         }
-        
+
         node_t::remove_from_list(second);
         first->add_child(second);
         return first;
@@ -435,12 +404,12 @@ namespace mix::ds
         {
             using node_t = fib_node<T, Compare, Allocator>;
             auto deq = std::deque<node_t*>();
-            
+
             node_t::fold_list(roots, [&deq](auto const n)
             {
                 deq.push_back(n);
             });
-            
+
             return deq;
         }
     }
@@ -448,7 +417,7 @@ namespace mix::ds
     template<class T, class Compare, class Allocator, bool IsConst>
     fib_heap_iterator<T, Compare, Allocator, IsConst>::fib_heap_iterator
         (node_t* roots) : 
-        stack_ (fib_impl::roots_to_dequeue(roots))
+        nodes_ (fib_impl::roots_to_dequeue(roots))
     {
     }
 
@@ -484,32 +453,32 @@ namespace mix::ds
 
     template<class T, class Compare, class Allocator, bool IsConst>
     auto fib_heap_iterator<T, Compare, Allocator, IsConst>::operator==
-        (fib_heap_iterator const& other) const -> bool
+        (fib_heap_iterator const& rhs) const -> bool
     {
-        return (stack_.empty() && rhs.stack_.empty())
-            || (stack_.size()  == rhs.stack_.size()
-               && stack_.top() == rhs.stack_.top());
+        return (nodes_.empty() && rhs.nodes_.empty())
+            || (nodes_.size()  == rhs.nodes_.size()
+               && nodes_.top() == rhs.nodes_.top());
     }
 
     template<class T, class Compare, class Allocator, bool IsConst>
     auto fib_heap_iterator<T, Compare, Allocator, IsConst>::operator!=
-        (fib_heap_iterator const& other) const -> bool
+        (fib_heap_iterator const& rhs) const -> bool
     {
-        return ! (*this == other);
+        return ! (*this == rhs);
     }
 
     template<class T, class Compare, class Allocator, bool IsConst>
     auto fib_heap_iterator<T, Compare, Allocator, IsConst>::operator*
         () const -> reference
     {
-        return *nodes_.top();
+        return **nodes_.top();
     }
 
     template<class T, class Compare, class Allocator, bool IsConst>
     auto fib_heap_iterator<T, Compare, Allocator, IsConst>::operator->
         () const -> pointer
     {
-        return std::addressof(*nodes_.top());
+        return std::addressof(**this);
     }
 
     template<class T, class Compare, class Allocator, bool IsConst>
@@ -537,6 +506,13 @@ namespace mix::ds
     }
 
     template<class T, class Compare, class Allocator, bool IsConst>
+    auto fib_heap_iterator<T, Compare, Allocator, IsConst>::current
+        () const -> node_t*
+    {
+        return nodes_.top();
+    }
+
+    template<class T, class Compare, class Allocator, bool IsConst>
     auto swap ( fib_heap_iterator<T, Compare, Allocator, IsConst>& lhs
               , fib_heap_iterator<T, Compare, Allocator, IsConst>& rhs ) noexcept -> void
     {
@@ -556,28 +532,28 @@ namespace mix::ds
     auto fib_node_handle<T, Compare, Allocator>::operator*
         () -> T&
     {
-        return **node;
+        return **node_;
     }
 
     template<class T, class Compare, class Allocator>
     auto fib_node_handle<T, Compare, Allocator>::operator*
         () const -> T const&
     {
-        return **node;
+        return **node_;
     }
 
     template<class T, class Compare, class Allocator>
     auto fib_node_handle<T, Compare, Allocator>::operator->
         () -> T*
     {
-        return std::addressof(**node);
+        return std::addressof(**node_);
     }
 
     template<class T, class Compare, class Allocator>
     auto fib_node_handle<T, Compare, Allocator>::operator->
         () const -> T const*
     {
-        return std::addressof(**node);
+        return std::addressof(**node_);
     }
 
 // fibonacci_heap definition:
@@ -613,12 +589,18 @@ namespace mix::ds
     fibonacci_heap<T, Compare, Allocator>::~fibonacci_heap
         ()
     {
-        this->clear();
+        this->for_each_node([this](auto const node)
+        {
+            this->delete_node(node);
+        });
+
+        root_ = nullptr;
+        size_ = 0;
     }
 
     template<class T, class Compare, class Allocator>
     auto fibonacci_heap<T, Compare, Allocator>::operator=
-        (fibonacci_heap<T, Compare, Allocator> other) noexcept -> fibonacci_heap<T, Compare, Allocator>&
+        (fibonacci_heap<T, Compare, Allocator> other) noexcept -> fibonacci_heap&
     {
         swap(*this, other);
         return *this;
@@ -637,7 +619,6 @@ namespace mix::ds
         (value_type const& data) -> handle_t
     {
         return this->insert_impl(this->new_node(data));
-        
     }
 
     template<class T, class Compare, class Allocator>
@@ -670,14 +651,7 @@ namespace mix::ds
         auto const children = oldRoot->disconnect_children();
         if (children)
         {
-            if (root_)
-            {
-                root_ = node_t::merge_lists(root_, children);
-            }
-            else
-            {
-                root_ = children;
-            }
+            root_ = root_ ? node_t::merge_lists(root_, children) : children;
         }
 
         --size_;
@@ -689,7 +663,6 @@ namespace mix::ds
         }
 
         this->delete_node(oldRoot);
-        return data;
     }
 
     template<class T, class Compare, class Allocator>
@@ -697,7 +670,7 @@ namespace mix::ds
         () -> reference
     {
         this->is_empty_check();
-        return *root_;
+        return **root_;
     }
 
     template<class T, class Compare, class Allocator>
@@ -705,7 +678,7 @@ namespace mix::ds
         () const -> const_reference
     {
         this->is_empty_check();
-        return *root_;
+        return **root_;
     }
 
     template<class T, class Compare, class Allocator>
@@ -730,23 +703,6 @@ namespace mix::ds
     }
 
     template<class T, class Compare, class Allocator>
-    auto fibonacci_heap<T, Compare, Allocator>::increase_key
-        (handle_t const handle) -> void
-    {
-        auto const node  = handle.node_;
-
-        node_t::fold_list(node->child_, [this](auto const n)
-        {
-            if (n->is_violating())
-            {
-                this->cut_node(n);
-            }
-        });
-
-        this->consolidate_roots();
-    }
-
-    template<class T, class Compare, class Allocator>
     auto fibonacci_heap<T, Compare, Allocator>::meld
         (fibonacci_heap rhs) -> fibonacci_heap&
     {
@@ -763,7 +719,7 @@ namespace mix::ds
 
         auto const otherroot = std::exchange(rhs.root_, nullptr);
         node_t::merge_lists(root_, otherroot);
-        root_ =  *root_ < *otherroot ? root_ : otherroot;
+        root_ =  Compare () (**root_, **otherroot) ? root_ : otherroot;
         size_ += std::exchange(rhs.size_, 0);
 
         return *this;
@@ -773,21 +729,21 @@ namespace mix::ds
     auto fibonacci_heap<T, Compare, Allocator>::erase
         (handle_t const handle) -> void
     {
-        // TODO
+        this->erase_impl(handle.node_);
     }
 
     template<class T, class Compare, class Allocator>
     auto fibonacci_heap<T, Compare, Allocator>::erase
         (iterator pos) -> void
     {
-        // TODO
+        this->erase_impl(pos.current());
     }
 
     template<class T, class Compare, class Allocator>
     auto fibonacci_heap<T, Compare, Allocator>::erase
         (const_iterator pos) -> void
     {
-        // TODO
+        this->erase_impl(pos.current());
     }
 
     template<class T, class Compare, class Allocator>
@@ -829,14 +785,7 @@ namespace mix::ds
     auto fibonacci_heap<T, Compare, Allocator>::clear
         () -> void
     {
-        auto it  = this->begin();
-        auto end = this->end();
-
-        while (it != end)
-        {
-            this->delete_node(*it);
-            ++it;
-        }
+        *this = fibonacci_heap();
     }
 
     template<class T, class Compare, class Allocator>
@@ -866,7 +815,7 @@ namespace mix::ds
     {
         return const_iterator();
     }
-    
+
     template<class T, class Compare, class Allocator>
     auto fibonacci_heap<T, Compare, Allocator>::cbegin
         () const -> const_iterator
@@ -901,23 +850,81 @@ namespace mix::ds
     }
 
     template<class T, class Compare, class Allocator>
-    template<class Cmp>
-    auto fibonacci_heap<T, Compare, Allocator>::decrease_key_impl
-        (node_t* const node) -> void
+    template<class NodeOp>
+    auto fibonacci_heap<T, Compare, Allocator>::for_each_node
+        (NodeOp op) const -> void
     {
-        if (node->is_root())
+        auto it  = this->begin();
+        auto end = this->end();
+
+        while (it != end)
         {
-            return;
+            op(it.current());
+            ++it;
+        }
+    }
+
+    template<class T, class Compare, class Allocator>
+    auto fibonacci_heap<T, Compare, Allocator>::deep_copy
+        (fibonacci_heap const& other) -> node_t*
+    {
+        auto const map = this->shallow_copy(other);
+
+        for (auto [original, copy] : map)
+        {
+            if (copy)
+            {
+                copy->parent_ = map.at(original->parent_);
+                copy->left_   = map.at(original->left_);
+                copy->right_  = map.at(original->right_);
+                copy->child_  = map.at(original->child_);
+            }
         }
 
-        if (Cmp () (*node, *node->parent_))
+        return map.at(other.root_);
+    }
+
+    template<class T, class Compare, class Allocator>
+    auto fibonacci_heap<T, Compare, Allocator>::shallow_copy
+        (fibonacci_heap const& other) -> node_map
+    {
+        auto map = node_map();
+        map.reserve(other.size());
+
+        other.for_each_node([&map, this](auto const node)
+        {
+            map.emplace(node, this->copy_node(node));
+        });
+        map.emplace(nullptr, nullptr);
+
+        return map;
+    }
+
+    template<class T, class Compare, class Allocator>
+    auto fibonacci_heap<T, Compare, Allocator>::erase_impl
+        (node_t* const node) -> void
+    {
+        if (node->is_not_root())
         {
             this->cut_node(node);
         }
 
-        if (Cmp () (*node, *root_))
+        root_ = node;
+        this->delete_min();
+    }
+
+    template<class T, class Compare, class Allocator>
+    auto fibonacci_heap<T, Compare, Allocator>::decrease_key_impl
+        (node_t* const node) -> void
+    {
+        if (node->is_not_root() && Compare () (**node, **node->parent_))
         {
-            root_ = fibNode;
+            this->cut_node(node);
+        }
+
+        if (Compare () (**node, **root_))
+        {
+            root_ = node;
         }
     }
 
@@ -925,18 +932,18 @@ namespace mix::ds
     auto fibonacci_heap<T, Compare, Allocator>::insert_impl
         (node_t* const node) -> handle_t
     {
-        node->start_cycled_list();
+        node->to_looped_list();
 
         if (root_)
         {
-            node_t::merge_lists(root_, node);    
+            node_t::merge_lists(root_, node);
         }
         else
         {
             root_ = node;
         }
 
-        if (*node < *this->root_)
+        if (Compare () (**node, **root_))
         {
             root_ = node;
         }
@@ -964,21 +971,16 @@ namespace mix::ds
     auto fibonacci_heap<T, Compare, Allocator>::cut_node
         (node_t* node) -> void
     {
-        for (;;)
+        auto cut = true;
+        while (cut)
         {
-            auto const parent  = node->parent_;
-            auto const cutMore = node->is_not_root() && parent_->mark_;
-
-            parent_->remove_child(node);
-            node->start_cycled_list();
+            auto const parent = node->parent_;
+            parent->remove_child(node);
+            node->to_looped_list();
             node_t::merge_lists(root_, node);
-            
-            if (!cutMore)
-            {
-                return;
-            }
-            
-            node = parent_;
+            node->mark_ = false;
+            cut  = parent->parent_ && std::exchange(parent->mark_, true);
+            node = parent;
         }
     }
 
@@ -987,53 +989,24 @@ namespace mix::ds
         () -> void
     {
         auto const maxRank = this->max_possible_rank();
-        auto aux = std::vector<fib_node*>(maxRank, nullptr);
+        auto aux = std::vector<node_t*>(maxRank, nullptr);
 
-        auto rootNode     = root_;
-        auto lastRoot     = root_->left_;
-        auto iterateRoots = true;
-
-        while (iterateRoots)
+        node_t::fold_list(root_, [&aux, this](auto root)
         {
-            auto const nextRootNode = rootNode->right_;
-            iterateRoots = rootNode != lastRoot;
-
-            for (;;)
+            while (aux[root->rank_])
             {
-                if (aux[rootNode->rank_])
-                {
-                    rootNode = node_t::merge_roots(aux[rootNode->rank_], rootNode);
-                    aux[rootNode->rank_ - 1] = nullptr;
-                }
-                else
-                {
-                    aux[rootNode->rank_] = rootNode;
-                    break;
-                }
+                auto const auxroot = std::exchange(aux[root->rank_], nullptr);
+                root = node_t::merge_roots(auxroot, root);
             }
 
-            rootNode = nextRootNode;
-        }
+            aux[root->rank_] = root;
+            root->mark_      = false;
 
-        // Before this loop root_ holds pointer to some
-        // element in the heap.
-        // This pointer must be replaced with pointer from the
-        // new list of roots even when they have same priorities.
-        // That is why the condition in the if statement 
-        // is written as it is. Of course this could have been solved
-        // differently but I like the code this way.
-        for (auto const root : aux)
-        {
-            if (!root)
-            {
-                continue;
-            }
-            
-            if (!(*root_ < *root))
+            if (!Compare () (**root_, **root))
             {
                 root_ = root;
             }
-        }
+        });
     }
 
     template<class T, class Compare, class Allocator>
@@ -1050,8 +1023,8 @@ namespace mix::ds
     auto fibonacci_heap<T, Compare, Allocator>::max_possible_rank
         () const -> rank_t
     {
-        auto const goldration = fibonacci_heap::PHI;
-        auto const rank = 1 + std::ceil(std::log(size_) / std::log(goldration));
+        auto const goldrat = fibonacci_heap::PHI;
+        auto const rank = 1 + std::ceil(std::log(size_) / std::log(goldrat));
         return static_cast<rank_t>(rank);
     }
 

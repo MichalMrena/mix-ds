@@ -1,6 +1,7 @@
 # Contents
 * [Intro](#intro)
 * [Data structures](#data-structures)
+    - [Fibonacci heap](#fibonacci-heap)
     - [Pairing heap](#pairing-heap)
     - [Simple map](#simple-map)
     - [Brodal queue](#brodal-queue)
@@ -10,18 +11,21 @@
 * [Examples](#examples)
     - [Priority queue](#priority-queue-1)
     - [Table](#table-1)
-* [Comparison](#comparison)
 
 # Intro
 This is a small data structure library for C++. Some structures are useful in practice and some of them that are interesting in theory can be used in some experiments and comparisons. Each structure is implemented in a single independent [header file](./src/lib). Using them is therefore very simple. You just need to include particular header file in your project. You will also need a compiler that supports C++17. It was tested with `gcc 10.1.0`, `clang++ 10.0.0` and `Visual Studio 2019`.
 
 # Data structures
+## Fibonacci heap
+Fibonacci heap is quite well-known implementation of [priority queue](https://en.wikipedia.org/wiki/Priority_queue). It utilizes clever techniques that maintains the structure of the heap while keeping the data structure relatively simple. One of the key properties is that it uses [amortization](https://en.wikipedia.org/wiki/Amortized_analysis) to achieve very good complexities of its operations.  You can read about the heap on [Wikipedia](https://en.wikipedia.org/wiki/Fibonacci_heap), in the [original paper](https://dl.acm.org/doi/10.1145/28869.28874) and on many other places on the [internet](https://www.google.com/search?q=fibonacci+heap). We have found [this](https://stackoverflow.com/questions/19508526/what-is-the-intuition-behind-the-fibonacci-heap-data-structure) and [this](https://stackoverflow.com/questions/14333314/why-is-a-fibonacci-heap-called-a-fibonacci-heap) SO posts very helpful.  
+Fibonacci heap is implemented in [Boost](https://www.boost.org/doc/libs/1_74_0/doc/html/boost/heap/fibonacci_heap.html) and you will probably find many other implementations.
+
 ## Pairing heap
 Pairing heap is simple and efficient implementation of the [priority queue](https://en.wikipedia.org/wiki/Priority_queue). It performs very well in [Discrete-event simulation](https://en.wikipedia.org/wiki/Discrete-event_simulation). You can read the formal description on [Wikipedia](https://en.wikipedia.org/wiki/Pairing_heap) , in the [original paper](https://www.cs.cmu.edu/~sleator/papers/pairing-heaps.pdf) and on many other places on the [internet](https://www.google.com/search?q=pairing+heap&oq=pairing+heap). We are not gonna repeat that here.  
 Pairing heap is implemented in [Boost](https://www.boost.org/doc/libs/1_73_0/doc/html/boost/heap/pairing_heap.html) and you will probably find many other implementations but some of them are naive or not generic. Our implementation is a generic, allocator-aware and recursion-free container. We use a binary tree to represent the heap and we also support two *merge modes* => two pass merge *(default)* and fifo queue. It can be specified by a template parameter.
 
 ## Simple map
-Simple map is a container adapter which takes a container *(`std::vector` by default)* and turns it into a map. It might be useful when you need a map semantics but you are only working with very small amount of data. In that case simple vector might perform better than sophisticated structures like red-black tree or hash table.
+Simple map is a container adaptor which takes a container *(`std::vector` by default)* and turns it into a map. It might be useful when you need a map semantics but you are only working with very small amount of data. In that case simple vector might perform better than sophisticated structures like red-black tree or hash table.
 
 ## Brodal queue
 [Brodal queue](https://en.wikipedia.org/wiki/Brodal_queue) is an implementation of priority queue with best possible [worst case](https://en.wikipedia.org/wiki/Best,_worst_and_average_case) complexities of its operations. These complexities are the same as [Fibonacci heap](https://en.wikipedia.org/wiki/Fibonacci_heap) has, but without amortization involved. This is one of the data structures that is interesting in theory, because big-O notation hides a big constant factors. Therefore, despite having constant complexities, it probably doesn't perform better than traditional queues like [binary heap](https://en.wikipedia.org/wiki/Binary_heap). This assumption was partially proven experimentally in our [paper](https://ieeexplore.ieee.org/document/8813457). On the other hand, the experiment shows that there could be a class of problems in which the Brodal queue *(or other advance implementation)* could outperform basic ones. This topic remains open for our future research.  
@@ -206,18 +210,3 @@ personMap.erase(9);        // 2.
 * use `emplace` or `try_emplace` for insertion
 * use `at` or `find` for element access
 * use `insert_or_assign` over `operator[]` unless you need the exact behavior of `operator[]`
-
-# Comparison
-Some structures in this library are also implemented in other libraries. In this comparison we want to show that our structures are comparable with high quality libraries as Boost. It is not our intention to show which one "is better". Numbers in table below show relative speed of data structure compared to one with the best result in given experiment.  
-
-## Random operations
-In this experiment we have performed uniformly distributed random operations *(insert, delete_min, erase, decrease_key)* on a queue with millions of elements in it. 
-| Structure    | mix-ds [ms] | Boost [ms] |
-|--------------|-------------|------------|
-| pairing_heap |      1      |    1.58    |
-
-## Dijkstra's algorithm
-Previous experiment does not necessarily mimics practical usage so we have also tested queues in the well-known use case - [Dijkstra's algorithm](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm). We have used New York City road network [graph](http://users.diag.uniroma1.it/challenge9/download.shtml). In this graph we have found 2000 shortest paths from random point to random point.
-| Structure    | mix-ds [ms] | Boost [ms] |
-|--------------|-------------|------------|
-| pairing_heap |    1        |    1.20    |

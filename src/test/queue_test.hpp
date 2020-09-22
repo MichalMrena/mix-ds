@@ -258,8 +258,9 @@ namespace mix::ds
 
         auto const insert = [&]()
         {
-            auto const data = to_odd(rngData.next_int());
-            handles.emplace_back(queue.insert(test_data {data, handles.size()}));
+            auto const data   = to_odd(rngData.next_int());
+            auto const handle = queue.insert(test_data {data, handles.size()});
+            handles.emplace_back(handle);
         };
 
         auto prevPrimordial = test_t(0);

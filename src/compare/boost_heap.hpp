@@ -1,7 +1,8 @@
-#ifndef MIX_DS_BOOST_PAIRING_HEAP_HPP
-#define MIX_DS_BOOST_PAIRING_HEAP_HPP
+#ifndef MIX_DS_BOOST_HEAP_HPP
+#define MIX_DS_BOOST_HEAP_HPP
 
 #include <boost/heap/pairing_heap.hpp>
+#include <boost/heap/fibonacci_heap.hpp>
 
 namespace mix::ds
 {
@@ -15,12 +16,16 @@ namespace mix::ds
         }
     };
 
-    template<class T, class Compare>
-    class boost_pairing_heap
+    /**
+        Simple wrapper of given boost heap so that it has 
+        the same interface as out heaps.
+     */
+    template<template<class, class, class...> class BoostHeap, class T, class Compare>
+    class boost_heap
     {
     private:
         using compare_t    = boost::heap::compare<reverse_compare<Compare>>;
-        using boost_heap_t = boost::heap::pairing_heap<T, compare_t>;
+        using boost_heap_t = BoostHeap<T, compare_t>;
 
     private:
         boost_heap_t heap_;
@@ -86,6 +91,12 @@ namespace mix::ds
             return heap_.end();
         }
     };
+
+    template<class T, class Compare>
+    using boost_pairing_heap = boost_heap<boost::heap::pairing_heap, T, Compare>;
+
+    template<class T, class Compare>
+    using boost_fibonacci_heap = boost_heap<boost::heap::fibonacci_heap, T, Compare>;
 }
 
 #endif
