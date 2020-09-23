@@ -511,10 +511,18 @@ namespace mix::ds
         using entry_t = brodal_entry<T, Compare, Allocator>;
         brodal_entry_handle(entry_t* const node);
         entry_t* entry_;
-    };    
-    
+    };
+
     /**
         Brodal queue.
+        Unlike std::priority_queue in this priority queue an element "which is less"
+        has a higher priority. This behaviour can be changed by providing an appropriate
+        Compare e.g. std::greater.
+
+        @tparam T           The type of the stored elements.
+        @tparam Compare     Type providing a strict weak ordering.
+                            See https://en.cppreference.com/w/cpp/named_req/Compare
+        @tparam Allocator   Allocator. See https://en.cppreference.com/w/cpp/named_req/Allocator
      */
     template<class T, class Compare = std::less<T>, class Allocator = std::allocator<T>>
     class brodal_queue
@@ -1647,7 +1655,7 @@ namespace mix::ds
     auto brodal_queue_iterator<T, Compare, Allocator, IsConst>::operator->
         () const -> pointer
     {
-        return std::addressof(**this->active());
+        return std::addressof(**this);
     }
 
     template<class T, class Compare, class Allocator, bool IsConst>

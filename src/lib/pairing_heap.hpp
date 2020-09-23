@@ -13,22 +13,30 @@
 
 namespace mix::ds
 {
-    // Types that specify different merge modes.
+    /**
+        Types that specify different merge modes.
+     */
     namespace merge_modes
     {
         struct two_pass   {};
         struct fifo_queue {};
     }
 
-    // Forward declaration of the tree node.
+    /**
+        Node of a binary tree.
+     */
     template<class T, class Compare>
     class pairing_node;
 
-    // Forward declaration of the iterator.
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
+    /**
+        Iterator of the pairing tree.
+     */
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
     class pairing_tree_iterator;
 
-    // Forward declaration of the pairing heap.
+    /**
+        Pairing heap.
+     */
     template< class T
             , class Compare   = std::less<T>
             , class MergeMode = merge_modes::two_pass
@@ -46,15 +54,15 @@ namespace mix::ds
 
         template<class... Args> 
         pairing_node (std::piecewise_construct_t, Args&&... args);
-        
+
         auto operator* ()       -> T&;
         auto operator* () const -> T const&;
-        
+
         template<class, class, class, class> 
         friend class pairing_heap;
-    
-        template<class, class, class, class, class>
-        friend class pairing_tree_iterator; 
+
+        template<class, class, class, class, bool>
+        friend class pairing_tree_iterator;
 
     private:
         T       data_;
@@ -62,13 +70,13 @@ namespace mix::ds
         node_t* left_;
         node_t* right_;
     };
-    
+
     /**
         Node handle that is returned after an insertion
         and can be used for decrease_key and erase.
      */
     template<class T, class Compare, class MergeMode, class Allocator>
-    class p_node_handle
+    class pairing_node_handle
     {
     public:
         auto operator*  ()       -> T&;
@@ -79,24 +87,24 @@ namespace mix::ds
     private:
         using node_t = pairing_node<T, Compare>;
         friend class pairing_heap<T, Compare, MergeMode, Allocator>;
-        p_node_handle(node_t* const node);
+        pairing_node_handle(node_t* const node);
         node_t* node_;
     };
 
     /**
-        Iterator of a binary tree.
+        Iterator of the pairing tree.
      */
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
     class pairing_tree_iterator
     {
     public:
         using difference_type   = std::ptrdiff_t;
-        using value_type        = Val;
+        using value_type        = std::conditional_t<IsConst, T const, T>;
         using pointer           = value_type*;
         using reference         = value_type&;
         using iterator_category = std::forward_iterator_tag;
         using node_t            = pairing_node<T, Compare>;
-    
+
     public:
         pairing_tree_iterator () = default;
         pairing_tree_iterator (node_t* const root);
@@ -124,26 +132,27 @@ namespace mix::ds
 
         @tparam T           The type of the stored elements.
         @tparam Compare     Type providing a strict weak ordering.
-                            See https://en.cppreference.com/w/cpp/named_req/Compare  
+                            See https://en.cppreference.com/w/cpp/named_req/Compare
         @tparam MergeMode   See the merge_modes namespace above.
-        @tparam Allocator   Allocator. See https://en.cppreference.com/w/cpp/named_req/Allocator  
+        @tparam Allocator   Allocator. See https://en.cppreference.com/w/cpp/named_req/Allocator
      */
     template<class T, class Compare, class MergeMode, class Allocator>
     class pairing_heap
     {
     public:
         using node_t            = pairing_node<T, Compare>;
-        using handle_t          = p_node_handle<T, Compare, MergeMode, Allocator>;
+        using handle_t          = pairing_node_handle<T, Compare, MergeMode, Allocator>;
         using value_type        = T;
         using reference         = T&;
         using const_reference   = T const&;
         using size_type         = std::size_t;
         using difference_type   = std::ptrdiff_t;
-        using iterator          = pairing_tree_iterator<T, Compare, MergeMode, Allocator, T>;
-        using const_iterator    = pairing_tree_iterator<T, Compare, MergeMode, Allocator, T const>;
+        using iterator          = pairing_tree_iterator<T, Compare, MergeMode, Allocator, false>;
+        using const_iterator    = pairing_tree_iterator<T, Compare, MergeMode, Allocator, true>;
         using type_alloc_traits = std::allocator_traits<Allocator>;
         using node_alloc_traits = typename type_alloc_traits::template rebind_traits<node_t>;
         using node_allocator    = typename type_alloc_traits::template rebind_alloc<node_t>;
+        using node_map          = std::unordered_map<node_t const*, node_t*>;
 
     public:
         pairing_heap  (Allocator const& alloc = Allocator());
@@ -151,7 +160,7 @@ namespace mix::ds
         pairing_heap  (pairing_heap&& other) noexcept;
         ~pairing_heap ();
 
-        auto operator= (pairing_heap other) -> pairing_heap&;
+        auto operator= (pairing_heap other) noexcept -> pairing_heap&;
 
         template<class... Args>
         auto emplace      (Args&&... args)             -> handle_t;
@@ -181,14 +190,14 @@ namespace mix::ds
 
     private:
         template<class... Args>
-        auto new_node    (Args&&... args)            -> node_t*;
-        auto copy_node   (node_t* const node)        -> node_t*;
-        auto delete_node (node_t* const node)        -> void;
-        auto insert_impl (node_t* const node)        -> handle_t;
-        auto empty_check () const                    -> void;
-        auto fill_map    (pairing_heap const& other) -> std::unordered_map<node_t*, node_t*>;
-        auto deep_copy   (pairing_heap const& other) -> node_t*;
-        auto erase_impl  (node_t* const node)        -> void;
+        auto new_node     (Args&&... args)            -> node_t*;
+        auto copy_node    (node_t* const node)        -> node_t*;
+        auto delete_node  (node_t* const node)        -> void;
+        auto insert_impl  (node_t* const node)        -> handle_t;
+        auto empty_check  () const                    -> void;
+        auto shallow_copy (pairing_heap const& other) -> node_map;
+        auto deep_copy    (pairing_heap const& other) -> node_t*;
+        auto erase_impl   (node_t* const node)        -> void;
 
         template<class Cmp = Compare>
         auto dec_key_impl (node_t* const node) -> void;
@@ -243,7 +252,7 @@ namespace mix::ds
             {
                 return true;
             }
-        };    
+        };
     }
 
 // pairing_node definition:
@@ -272,53 +281,53 @@ namespace mix::ds
         return data_;
     }
 
-// p_node_handle definition:
+// pairing_node_handle definition:
 
     template<class T, class Compare, class MergeMode, class Allocator>
-    p_node_handle<T, Compare, MergeMode, Allocator>::p_node_handle(node_t* const node) :
-        node_ {node}
+    pairing_node_handle<T, Compare, MergeMode, Allocator>::pairing_node_handle(node_t* const node) :
+        node_ (node)
     {
     }
 
     template<class T, class Compare, class MergeMode, class Allocator>
-    auto p_node_handle<T, Compare, MergeMode, Allocator>::operator*
+    auto pairing_node_handle<T, Compare, MergeMode, Allocator>::operator*
         () -> T&
     {
         return **node_;
     }
 
     template<class T, class Compare, class MergeMode, class Allocator>
-    auto p_node_handle<T, Compare, MergeMode, Allocator>::operator*
+    auto pairing_node_handle<T, Compare, MergeMode, Allocator>::operator*
         () const -> T const&
     {
         return **node_;
     }
 
     template<class T, class Compare, class MergeMode, class Allocator>
-    auto p_node_handle<T, Compare, MergeMode, Allocator>::operator->
+    auto pairing_node_handle<T, Compare, MergeMode, Allocator>::operator->
         () -> T*
     {
-        return std::addressof(*node_);
+        return std::addressof(**this);
     }
 
     template<class T, class Compare, class MergeMode, class Allocator>
-    auto p_node_handle<T, Compare, MergeMode, Allocator>::operator->
+    auto pairing_node_handle<T, Compare, MergeMode, Allocator>::operator->
         () const -> T const*
     {
-        return std::addressof(*node_);
+        return std::addressof(**this);
     }
 
 // pairing_tree_iterator definition:
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    pairing_tree_iterator<T, Compare, MergeMode, Allocator, Val>::pairing_tree_iterator
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
+    pairing_tree_iterator<T, Compare, MergeMode, Allocator, IsConst>::pairing_tree_iterator
         (node_t* const root) : 
         queue_ (std::deque {root})
     {
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator++
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
+    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, IsConst>::operator++
         () -> pairing_tree_iterator&
     {
         if (queue_.front()->left_)
@@ -335,8 +344,8 @@ namespace mix::ds
         return *this;
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator++
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
+    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, IsConst>::operator++
         (int) -> pairing_tree_iterator
     {
         auto const ret = *this;
@@ -344,22 +353,22 @@ namespace mix::ds
         return ret;
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator*
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
+    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, IsConst>::operator*
         () const -> reference
     {
         return **this->current();
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator->
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
+    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, IsConst>::operator->
         () const -> pointer
     {
         return std::addressof(**this);
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator==
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
+    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, IsConst>::operator==
         (pairing_tree_iterator const& rhs) const -> bool
     {
         return (queue_.empty() && rhs.queue_.empty())
@@ -367,15 +376,15 @@ namespace mix::ds
             &&  queue_.front() == rhs.queue_.front());
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, Val>::operator!=
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
+    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, IsConst>::operator!=
         (pairing_tree_iterator const& rhs) const -> bool
     {
         return !(*this == rhs);
     }
 
-    template<class T, class Compare, class MergeMode, class Allocator, class Val>
-    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, Val>::current
+    template<class T, class Compare, class MergeMode, class Allocator, bool IsConst>
+    auto pairing_tree_iterator<T, Compare, MergeMode, Allocator, IsConst>::current
         () const -> node_t*
     {
         return queue_.front();
@@ -413,12 +422,18 @@ namespace mix::ds
     template<class T, class Compare, class MergeMode, class Allocator>
     pairing_heap<T, Compare, MergeMode, Allocator>::~pairing_heap()
     {
-        this->clear();
+        this->for_each_node([this](auto const node)
+        {
+            this->delete_node(node);
+        });
+
+        root_ = nullptr;
+        size_ = 0;
     }
 
     template<class T, class Compare, class MergeMode, class Allocator>
     auto pairing_heap<T, Compare, MergeMode, Allocator>::operator=
-        (pairing_heap other) -> pairing_heap&
+        (pairing_heap other) noexcept -> pairing_heap&
     {
         swap(*this, other);
         return *this;
@@ -431,7 +446,7 @@ namespace mix::ds
     {
         return this->insert_impl(this->new_node(std::forward<Args>(args)...));
     }
-    
+
     template<class T, class Compare, class MergeMode, class Allocator>
     auto pairing_heap<T, Compare, MergeMode, Allocator>::insert
         (value_type const& value) -> handle_t
@@ -562,21 +577,21 @@ namespace mix::ds
             swap(alloc_, rhs.alloc_);
         }
     }
-    
+
     template<class T, class Compare, class MergeMode, class Allocator>
     auto pairing_heap<T, Compare, MergeMode, Allocator>::empty
         () const -> bool
     {
         return 0 == this->size();
     }
-    
+
     template<class T, class Compare, class MergeMode, class Allocator>
     auto pairing_heap<T, Compare, MergeMode, Allocator>::size
         () const -> size_type
     {
         return size_;
     }
-    
+
     template<class T, class Compare, class MergeMode, class Allocator>
     auto pairing_heap<T, Compare, MergeMode, Allocator>::max_size
         () const -> size_type
@@ -588,13 +603,7 @@ namespace mix::ds
     auto pairing_heap<T, Compare, MergeMode, Allocator>::clear
         () -> void
     {
-        this->for_each_node([this](auto const node)
-        {
-            this->delete_node(node);
-        });
-
-        root_ = nullptr;
-        size_ = 0;
+        *this = pairing_heap();
     }
 
     template<class T, class Compare, class MergeMode, class Allocator>
@@ -624,7 +633,7 @@ namespace mix::ds
     {
         return this->cend();
     }
-    
+
     template<class T, class Compare, class MergeMode, class Allocator>
     auto pairing_heap<T, Compare, MergeMode, Allocator>::cbegin
         () const -> const_iterator
@@ -682,16 +691,17 @@ namespace mix::ds
     }
 
     template<class T, class Compare, class MergeMode, class Allocator>
-    auto pairing_heap<T, Compare, MergeMode, Allocator>::fill_map
-        (pairing_heap const& other) -> std::unordered_map<node_t*, node_t*>
+    auto pairing_heap<T, Compare, MergeMode, Allocator>::shallow_copy
+        (pairing_heap const& other) -> node_map
     {
-        auto map = std::unordered_map<node_t*, node_t*>();
+        auto map = node_map();
         map.reserve(other.size());
 
         other.for_each_node([&map, this](auto const node)
         {
             map.emplace(node, this->copy_node(node));
         });
+        map.emplace(nullptr, nullptr);
 
         return map;
     }
@@ -705,23 +715,14 @@ namespace mix::ds
             return nullptr;
         }
 
-        auto const map = this->fill_map(other);
-        
-        for (auto&& [oldnode, newnode] : map)
+        auto const map = this->shallow_copy(other);
+        for (auto [original, copy] : map)
         {
-            if (newnode->parent_)
+            if (original)
             {
-                newnode->parent_ = map.at(newnode->parent_);
-            }
-
-            if (newnode->left_)
-            {
-                newnode->left_ = map.at(newnode->left_);
-            }
-
-            if (newnode->right_)
-            {
-                newnode->right_ = map.at(newnode->right_);
+                copy->parent_ = map.at(copy->parent_);
+                copy->left_   = map.at(copy->left_);
+                copy->right_  = map.at(copy->right_);
             }
         }
 
@@ -804,7 +805,7 @@ namespace mix::ds
         son->parent_  = parent;
         son->right_   = oldLeftSon;
         parent->left_ = son;
-        
+
         if (oldLeftSon)
         {
             oldLeftSon->parent_ = son;
@@ -841,7 +842,7 @@ namespace mix::ds
             fifo.pop();
             fifo.push(pairing_heap::pair(lhs, rhs));
         }
-        
+
         return fifo.front();
     }
 

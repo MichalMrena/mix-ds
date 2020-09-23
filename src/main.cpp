@@ -15,36 +15,14 @@
 
 auto test_pairing_heap()
 {
-    // using namespace mix::ds;
-    // auto constexpr seed = 54654564321; 
-    // auto constexpr n    = 5'000'000;
-    // auto constexpr n    = 10'000;
-
-    // queue_test_insert <pairing_heap, merge_modes::fifo_queue> (n, seed);
-    // queue_test_insert <pairing_heap, merge_modes::two_pass>   (n, seed);
-
-    // queue_test_delete <pairing_heap, merge_modes::two_pass>   (n, seed);
-    // queue_test_delete <pairing_heap, merge_modes::fifo_queue> (n, seed);
-
-    // queue_test_decrease <pairing_heap, merge_modes::two_pass>   (n, seed);
-    // queue_test_decrease <pairing_heap, merge_modes::fifo_queue> (n, seed);
-
-    // queue_test_copy <pairing_heap, merge_modes::two_pass>   (n, seed);
-    // queue_test_copy <pairing_heap, merge_modes::fifo_queue> (n, seed);
-
-    // queue_test_erase <pairing_heap, merge_modes::two_pass>   (n, seed);
-    // queue_test_erase <pairing_heap, merge_modes::fifo_queue> (n, seed);
-
-    // queue_test_random_all <pairing_heap, merge_modes::two_pass> (n, seed);
+    using namespace mix::ds;
+    auto constexpr seed = 54654564321; 
+    auto constexpr n    = 5'000'000;
+    queue_test_random_all <pairing_heap, merge_modes::two_pass> (n, seed);
+    // queue_test_random_all <boost_pairing_heap> (n, seed);
     // queue_test_random_all <pairing_heap, merge_modes::fifo_queue> (n, seed);
-
-    // queue_test_meld <pairing_heap, merge_modes::two_pass>   (n, seed);    
-    // queue_test_meld <pairing_heap, merge_modes::fifo_queue> (n, seed);    
-
     // queue_test_other <pairing_heap, merge_modes::two_pass>   (n, seed);    
     // queue_test_other <pairing_heap, merge_modes::fifo_queue> (n, seed);
-
-    // queue_test_random_all <boost_pairing_heap> (n, seed);
 }
 
 auto test_simple_map()
@@ -84,10 +62,10 @@ auto test_dijkstra()
     using namespace mix::ds;
     auto constexpr seed = 1321545132;
     auto constexpr n    = 3000;
-    // test_dijkstra_to_point <pairing_heap>       (n, seed);
-    // test_dijkstra_to_point <boost_pairing_heap> (n, seed);
+    test_dijkstra_to_point <pairing_heap>       (n, seed);
+    test_dijkstra_to_point <boost_pairing_heap> (n, seed);
     // test_dijkstra_to_point <brodal_queue>       (n, seed);
-    test_dijkstra_to_point <fibonacci_heap>     (n, seed);
+    // test_dijkstra_to_point <fibonacci_heap>     (n, seed);
 }
 
 auto example_priority_queue()
@@ -151,8 +129,8 @@ int main()
     using namespace mix::ds;
     auto watch = mix::utils::stopwatch();
 
-    test_fibonacci_heap();
-    // test_pairing_heap();
+    // test_fibonacci_heap();
+    test_pairing_heap();
     // test_brodal_queue();
     // test_baseline_map();
     // test_dijkstra();

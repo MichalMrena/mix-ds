@@ -1,5 +1,5 @@
-#ifndef MIX_UTILS_STRING_UTILS_
-#define MIX_UTILS_STRING_UTILS_
+#ifndef MIX_UTILS_STRING_UTILS_HPP
+#define MIX_UTILS_STRING_UTILS_HPP
 
 #include <string>
 #include <string_view>
@@ -18,14 +18,14 @@ namespace mix::utils
         @return vector of new string that are words from @p s .
      */
     auto to_words (std::string s) -> std::vector<std::string>;
-    
+
     /**
         Splits the string into two parts. The first one contains the first word (head)
         and the second one constains the rest of the string (tail).
         @return pair of new strings that are the head and the tail of @p s .
      */
     auto to_head_tail (std::string s) -> std::pair<std::string, std::string>;
-    
+
     /**
         Replaces consecutive spaces with a single one.
         By space we mean ' '.
@@ -38,7 +38,7 @@ namespace mix::utils
         @return new string with no leading and trailing spaces.
      */
     auto trim (std::string s) -> std::string;
-    
+
     /**
         @return new string that is reversed version of @p s .
      */
@@ -283,7 +283,7 @@ namespace mix::utils
 
         return ost.str();
     }
-    
+
     template<class Range>
     auto concat_range ( Range const& strs
                       , std::string_view glue ) -> std::string

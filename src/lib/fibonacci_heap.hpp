@@ -124,6 +124,14 @@ namespace mix::ds
 
     /**
         Fibonacci heap.
+        Unlike std::priority_queue in this heap an element "which is less"
+        has a higher priority. This behaviour can be changed by providing an appropriate
+        Compare e.g. std::greater.
+
+        @tparam T           The type of the stored elements.
+        @tparam Compare     Type providing a strict weak ordering.
+                            See https://en.cppreference.com/w/cpp/named_req/Compare
+        @tparam Allocator   Allocator. See https://en.cppreference.com/w/cpp/named_req/Allocator
      */
     template<class T, class Compare, class Allocator>
     class fibonacci_heap
@@ -487,12 +495,12 @@ namespace mix::ds
     {
         auto const topschild = nodes_.top()->child_;
         nodes_.pop();
-        
+
         node_t::fold_list(topschild, [this](auto const n)
         {
             this->nodes_.push(n);
-        });     
-        
+        });
+
         return *this;
     }
 
